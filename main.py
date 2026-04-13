@@ -6,7 +6,6 @@ from discord.ext import commands
 
 from config import BOT_TOKEN, PREFIX
 
-# Setup Logging
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(name)s - %(message)s"
 )
@@ -45,7 +44,7 @@ class YamashiroBot(commands.Bot):
         await self.change_presence(status=discord.Status.online, activity=activity)
 
         logger.info(f"Yamashiro is ready as {self.user} (ID: {self.user.id})")
-        logger.info(f"Connected to {guild_count} guilds with {member_count} members.")
+        logger.info(f"Connected to {guild_count} servers with {member_count} members.")
 
 
 async def main():

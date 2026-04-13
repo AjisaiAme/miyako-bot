@@ -25,7 +25,7 @@ logger = logging.getLogger("Yamashiro.Landmine")
 def create_embed(
     title: str, description: str, color_key="utility", fields=None
 ) -> discord.Embed:
-    """Helper to generate consistent embeds with the Hydrangea/Obsidian aesthetic."""
+    """Helper to generate consistent embeds"""
     embed = discord.Embed(
         title=title,
         description=description,
@@ -38,7 +38,7 @@ def create_embed(
 
 
 class LandmineConfig:
-    """Container for per-channel landmine settings."""
+    """Container for per-channel settings."""
 
     __slots__ = ("channel_id", "landmine_chance", "trigger_chance", "timeout_duration")
 
@@ -218,7 +218,6 @@ class Landmine(commands.Cog):
         if not config:
             return
 
-        # Ignore commands
         prefix = await self.bot.get_prefix(message)
         if message.content.startswith(
             tuple(prefix) if isinstance(prefix, (list, tuple)) else prefix
@@ -284,20 +283,16 @@ class Landmine(commands.Cog):
 
             embed = create_embed(
                 f"{EMOJIS.get('boom', '💥')} BOOM!",
-                f"**{member.display_name}** stepped on a landmine and has been timed out!",
+                f"{member.mention} stepped on a landmine! They are timed out for **{config.timeout_duration} seconds**\n\n"
+                f"💣 **{remaining}** landmine(s) remain",
                 "landmine",
-                fields=[
-                    ("Action", "Timeout", True),
-                    ("Duration", f"{config.timeout_duration}s", True),
-                    ("Remaining", f"{remaining} mines", True),
-                ],
             )
             await message.channel.send(embed=embed)
         except discord.Forbidden:
             await message.channel.send(
                 embed=create_embed(
                     f"{EMOJIS.get('shield', '🛡️')} Permission Denied",
-                    "I am not allowed to timeout this member.",
+                    "Eh!? I'm sorry, Milord! I am not allowed to timeout this member.",
                     "error",
                 )
             )
@@ -340,7 +335,7 @@ class Landmine(commands.Cog):
         # Admin commands
         admin_cmds = (
             f"`{ctx.prefix}lm allow` – Enable the module in this channel\n"
-            f"`{ctx.prefix}lm restrict` – Disable and remove all mines\n"
+            f"`{ctx.prefix}lm restrict` – Disable and remove all mines from current channel\n"
             f"`{ctx.prefix}lm config` – Adjust drop/trigger chances & timeout length\n"
             f"`{ctx.prefix}lm clear` – Remove all active mines"
         )
@@ -364,9 +359,9 @@ class Landmine(commands.Cog):
             active_mines = await self._get_active_mines(ctx.channel.id)
 
             config_text = (
-                f"**Landmine Chance:** `1 in {config.landmine_chance}` messages\n"
-                f"**Trigger Chance:** `1 in {config.trigger_chance}` messages\n"
-                f"**Timeout:** `{config.timeout_duration} seconds`\n"
+                f"**Landmine Odds:** `1 in {config.landmine_chance}` messages\n"
+                f"**Trigger Odds:** `1 in {config.trigger_chance}` messages\n"
+                f"**Timeout Duration:** `{config.timeout_duration} seconds`\n"
                 f"**Active Mines:** {active_mines}"
             )
             embed.add_field(
@@ -459,8 +454,7 @@ class Landmine(commands.Cog):
         async with aiosqlite.connect(DB_PATH) as db:
             await db.execute("PRAGMA foreign_keys = ON")
 
-            # Delete from all related tables (cascade will handle config/mines if FK works,
-            # but we do it manually to be safe)
+            # Delete channel from all related tables
             await db.execute(
                 "DELETE FROM active_mines WHERE channel_id = ?", (ctx.channel.id,)
             )
@@ -490,7 +484,7 @@ class Landmine(commands.Cog):
         if not await self._is_whitelisted(ctx.channel.id):
             return await ctx.send(
                 embed=create_embed(
-                    "❌ Not Enabled",
+                    "Not Enabled!",
                     "Landmines are not active in this channel.",
                     "warning",
                 )
@@ -498,7 +492,9 @@ class Landmine(commands.Cog):
         await self._set_active_mines(ctx.channel.id, 0)
         await ctx.send(
             embed=create_embed(
-                "🧹 Mines Cleared", "All active mines have been removed.", "success"
+                "🧹 Mines Cleared",
+                f"All active mines have been removed from {ctx.channel.mention}.",
+                "success",
             )
         )
 
@@ -515,7 +511,7 @@ class Landmine(commands.Cog):
         if not await self._is_whitelisted(ctx.channel.id):
             return await ctx.send(
                 embed=create_embed(
-                    "❌ Not Enabled",
+                    "Not Enabled!",
                     "Enable landmines first with `y!lm allow`.",
                     "warning",
                 )
@@ -530,7 +526,7 @@ class Landmine(commands.Cog):
                 (
                     "`landmine_chance`",
                     (
-                        f"1 in **{config.landmine_chance}** messages\n"
+                        f"`1 in {config.landmine_chance}` messages\n"
                         f"*Chance for any message to automatically drop a mine.*\n"
                     ),
                     False,
@@ -538,7 +534,7 @@ class Landmine(commands.Cog):
                 (
                     "`trigger_chance`",
                     (
-                        f"1 in **{config.trigger_chance}** messages\n"
+                        f"`1 in {config.trigger_chance}` messages\n"
                         f"*Chance to step on a mine when one is present.*\n"
                     ),
                     False,
@@ -546,7 +542,7 @@ class Landmine(commands.Cog):
                 (
                     "`timeout_duration`",
                     (
-                        f"**Current:** **{config.timeout_duration}** seconds\n"
+                        f"**Current:** `{config.timeout_duration}` seconds\n"
                         f"*How long the user is timed out after triggering a mine.*\n"
                         f"Can be set to a maximum of `180` seconds (3 minutes)."
                     ),
@@ -564,7 +560,6 @@ class Landmine(commands.Cog):
             embed.set_footer(text="Admin only • Changes apply immediately")
             return await ctx.send(embed=embed)
 
-        # ----- Handle setting changes -----
         setting = setting.lower()
         if setting not in valid_settings:
             return await ctx.send(
@@ -641,7 +636,7 @@ class Landmine(commands.Cog):
         if not await self._is_whitelisted(ctx.channel.id):
             return await ctx.send(
                 embed=create_embed(
-                    "Not Enabled",
+                    "Landmines Restricted!",
                     "Landmines are not active in this channel.",
                     "warning",
                 )
@@ -651,7 +646,7 @@ class Landmine(commands.Cog):
             return await ctx.send(
                 embed=create_embed(
                     "⏳ Cooldown",
-                    "You're placing mines too quickly. Wait a few seconds.",
+                    "C-calm down, Milord! Please wait before placing more mines...",
                     "warning",
                 )
             )
@@ -692,31 +687,32 @@ class Landmine(commands.Cog):
                 )
             )
 
+        config = await self._get_config(ctx.channel.id)
+        timeout_duration = (
+            config.timeout_duration if config else DEFAULT_TIMEOUT_DURATION
+        )
+
+        remaining = max(0, active_mines - 1)
+
         await ctx.send(
             embed=create_embed(
-                f"{EMOJIS.get('boom', '💥')} NOOOO!",
-                f"**{ctx.author.display_name}** intentionally stepped on a landmine!",
+                f"{EMOJIS.get('boom', '💥')} NOOO!",
+                f"{ctx.author.mention} intentionally stepped on a landmine! They are timed out for **{timeout_duration} seconds**\n\n"
+                f"**{remaining}** landmine(s) remain",
                 "landmine",
             )
         )
-        await asyncio.sleep(1.5)
-        config = await self._get_config(ctx.channel.id)
         await self._trigger_landmine(ctx.message, config)
 
     @landmine_group.command(name="check")
     async def check_command(self, ctx):
         """Check if mines are enabled and how many are active."""
         active = await self._get_active_mines(ctx.channel.id)
-        whitelisted = await self._is_whitelisted(ctx.channel.id)
-        status = "Active" if whitelisted else "Restricted"
+
         embed = create_embed(
-            "💣 Landmine Status",
-            f"Inspecting {ctx.channel.mention}, Milord...",
+            f"💣 Landmine Status for {ctx.channel.mention}",
+            f"There are **{active}** mine(s) in {ctx.channel.mention}",
             "info",
-            fields=[
-                ("Status", status, True),
-                ("Active Mines", str(active), True),
-            ],
         )
         await ctx.send(embed=embed)
 
