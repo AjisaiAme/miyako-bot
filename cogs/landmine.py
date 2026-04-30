@@ -11,7 +11,6 @@ from discord.ext import commands
 
 from config import EMBED_COLORS, EMOJIS
 
-# Constants
 DEFAULT_LANDMINE_CHANCE = 100
 DEFAULT_TRIGGER_CHANCE = 100
 DEFAULT_TIMEOUT_DURATION = 30
@@ -395,10 +394,8 @@ class Landmine(commands.Cog):
             )
 
         async with aiosqlite.connect(DB_PATH) as db:
-            # Enable foreign keys for this connection
             await db.execute("PRAGMA foreign_keys = ON")
 
-            # Clean up any orphaned rows first (safety measure)
             await db.execute(
                 "DELETE FROM landmine_config WHERE channel_id = ?", (ctx.channel.id,)
             )
@@ -406,13 +403,11 @@ class Landmine(commands.Cog):
                 "DELETE FROM active_mines WHERE channel_id = ?", (ctx.channel.id,)
             )
 
-            # Insert into whitelist
             await db.execute(
                 "INSERT INTO whitelisted_channels (channel_id) VALUES (?)",
                 (ctx.channel.id,),
             )
 
-            # Insert default config
             await db.execute(
                 """
                 INSERT INTO landmine_config
@@ -454,7 +449,6 @@ class Landmine(commands.Cog):
         async with aiosqlite.connect(DB_PATH) as db:
             await db.execute("PRAGMA foreign_keys = ON")
 
-            # Delete channel from all related tables
             await db.execute(
                 "DELETE FROM active_mines WHERE channel_id = ?", (ctx.channel.id,)
             )
@@ -776,7 +770,6 @@ class Landmine(commands.Cog):
     @landmine_group.command(name="serverstats", aliases=["guildstats", "ss"])
     async def server_stats(self, ctx):
         """View total landmine activity across the entire server."""
-        # Get all member IDs in the guild (excluding bots)
         member_ids = [m.id for m in ctx.guild.members if not m.bot]
 
         if not member_ids:
@@ -789,7 +782,6 @@ class Landmine(commands.Cog):
             )
 
         async with aiosqlite.connect(DB_PATH) as db:
-            # Build placeholders for IN clause
             placeholders = ",".join("?" for _ in member_ids)
 
             async with db.execute(

@@ -20,7 +20,12 @@ class YamashiroBot(commands.Bot):
 
         super().__init__(command_prefix=PREFIX, intents=intents, help_command=None)
         # cog modules
-        self.initial_extensions = ["cogs.fun", "cogs.utility", "cogs.landmine"]
+        self.initial_extensions = [
+            "cogs.fun",
+            "cogs.utility",
+            "cogs.landmine",
+            "cogs.blog_updates",
+        ]
 
     async def setup_hook(self):
         logger.info("Initializing...")

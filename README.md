@@ -23,6 +23,12 @@ cd yamashiro-bot
 pip install discord.py python-dotenv aiohttp
 npm install
 ```
+
+To run Yamashiro:
+```
+python main.py
+```
+
 ### Configuration
 - Create `.env` on the project root.
 - Copy and paste your Discord bot token. Generate one at the [Discord Developer Portal](https://discord.com/developers/applications).

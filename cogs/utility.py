@@ -19,8 +19,6 @@ class Utility(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    # --- Internal Helpers ---
-
     def create_embed(
         self, title: str, description: str, color_key="utility", fields=None
     ) -> discord.Embed:
@@ -45,7 +43,6 @@ class Utility(commands.Cog):
         return None
 
     # --- Listeners ---
-
     @commands.Cog.listener()
     async def on_command(self, ctx):
         """Adds a visual cue when a command is acknowledged."""
@@ -57,7 +54,6 @@ class Utility(commands.Cog):
             pass
 
     # --- Commands ---
-
     @commands.command(name="help", aliases=["commands", "h"])
     async def help_command(self, ctx):
         """Displays the main command directory."""
@@ -135,7 +131,6 @@ class Utility(commands.Cog):
         guild = ctx.guild
         bots = sum(m.bot for m in guild.members)
 
-        # Boost Level Logic
         boost_count = guild.premium_subscription_count
         boost_level = "None"
         if boost_count >= 14:
@@ -177,7 +172,6 @@ class Utility(commands.Cog):
         """Detailed dossiers on server members."""
         member = member or ctx.author
 
-        # Filter for "Key" permissions
         key_perms = [
             p[0].replace("_", " ").title()
             for p in member.guild_permissions
