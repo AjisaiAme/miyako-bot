@@ -1,3 +1,5 @@
+import discord
+
 from .helpers import create_embed
 
 

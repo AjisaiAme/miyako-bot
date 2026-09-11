@@ -9,8 +9,8 @@ from .helpers import create_embed
 # --------------------------------------------------------------------------
 def help_embed(prefix: str, invoker: discord.Member) -> discord.Embed:
     embed = create_embed(
-        title="Yamashiro at your service!",
-        description="*Greetings, Milord. I'll do my very best to assist you!*\n",
+        title="Miyako is here to help",
+        description="*Hi there. Here are the commands I can help with.*\n",
         colour_key="info",
     )
     embed.add_field(
@@ -49,7 +49,7 @@ def help_embed(prefix: str, invoker: discord.Member) -> discord.Embed:
 def ping_embed(latency_ms: int) -> discord.Embed:
     return create_embed(
         title="Pong!",
-        description=f"*I-I ran as fast as I could, Milord!*\nLatency: **{latency_ms}ms**",
+        description=f"*That was quick.*\nLatency: **{latency_ms}ms**",
         colour_key="success",
     )
 
@@ -66,8 +66,8 @@ def about_embed(
         ("Latency", f"`{latency_ms}ms`", True),
     ]
     embed = create_embed(
-        title="Yamashiro Status Report",
-        description="*All systems are stable and ready for your orders, Milord!*",
+        title="Miyako Status Report",
+        description="*All systems are stable and ready to help.*",
         fields=fields,
         colour_key="utility",
     )
@@ -80,7 +80,7 @@ def about_embed(
 # --------------------------------------------------------------------------
 def server_info_embed(guild: discord.Guild) -> discord.Embed:
     bots = sum(m.bot for m in guild.members)
-    humans = guild.member_count - bots
+    humans = (guild.member_count or 0) - bots
 
     boost_count = guild.premium_subscription_count
     if boost_count >= 14:
@@ -93,7 +93,7 @@ def server_info_embed(guild: discord.Guild) -> discord.Embed:
         boost_level = "None"
 
     fields = [
-        ("Owner", guild.owner.mention, True),
+        ("Owner", guild.owner.mention if guild.owner else "Unknown", True),
         ("Established", format_dt(guild.created_at, "R"), True),
         ("ID", f"`{guild.id}`", True),
         (
@@ -107,7 +107,7 @@ def server_info_embed(guild: discord.Guild) -> discord.Embed:
 
     embed = create_embed(
         title=guild.name,
-        description=guild.description or "*No description recorded, Milord!*",
+        description=guild.description or "*No description recorded.*",
         fields=fields,
         colour_key="utility",
     )

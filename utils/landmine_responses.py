@@ -1,9 +1,14 @@
+import discord
+from typing import Optional
+
 from .helpers import create_embed
 
 
-def help_embed(prefix: str, now_str: str = None, in_rateup: bool = None) -> discord.Embed:
+def help_embed(
+    prefix: str, now_str: Optional[str] = None, in_rateup: Optional[bool] = None
+) -> discord.Embed:
     desc = (
-        "*Watch your step, Milord! Your messages may trigger hidden explosives.*\n\n"
+        "*Watch your step. Your messages may trigger hidden explosives.*\n\n"
         f"Use `{prefix}lm allow` to enable the game in this channel."
     )
     if now_str is not None and in_rateup is not None:
@@ -29,7 +34,7 @@ def help_embed(prefix: str, now_str: str = None, in_rateup: bool = None) -> disc
         f"`{prefix}lm serverstats` – View server‑wide stats\n"
         f"`{prefix}lm top` – View global leaderboard\n"
         f"`{prefix}lm rateup` – Check for rate‑up times\n"
-        f"`{prefix}lm step` – Please don't, Milord...\n"
+        f"`{prefix}lm step` – Probably best to avoid this one\n"
     )
     embed.add_field(name="Player Commands", value=user_cmds, inline=False)
     return embed
@@ -47,7 +52,7 @@ def current_config_field(
     channel_name: str,
     config: dict,
     active_mines: int,
-    effective_trigger_chance: int = None,
+    effective_trigger_chance: Optional[int] = None,
 ) -> tuple:
     trigger_chance = (
         effective_trigger_chance
@@ -73,7 +78,7 @@ def current_config_field(
 def already_enabled(channel_mention: str) -> discord.Embed:
     return create_embed(
         "Already Enabled!",
-        f"Landmines are already active in {channel_mention}, Milord.",
+        f"Landmines are already active in {channel_mention}.",
         colour_key="info",
     )
 
@@ -81,7 +86,7 @@ def already_enabled(channel_mention: str) -> discord.Embed:
 def landmines_enabled(channel_mention: str) -> discord.Embed:
     return create_embed(
         "Landmines Enabled!",
-        f"Landmines are now active in {channel_mention}. Be careful, Milord!",
+        f"Landmines are now active in {channel_mention}. Be careful!",
         colour_key="success",
     )
 
@@ -89,7 +94,7 @@ def landmines_enabled(channel_mention: str) -> discord.Embed:
 def already_restricted(channel_mention: str) -> discord.Embed:
     return create_embed(
         "Already Restricted!",
-        f"Landmines are already disabled in {channel_mention}, Milord.",
+        f"Landmines are already disabled in {channel_mention}.",
         colour_key="info",
     )
 
@@ -121,7 +126,7 @@ def mines_cleared(channel_mention: str) -> discord.Embed:
 def no_danger() -> discord.Embed:
     return create_embed(
         "No danger in sight!",
-        "Walk freely, Milord!",
+        "The path is clear. Walk freely!",
         colour_key="info",
     )
 
@@ -136,9 +141,9 @@ def boom_embed(member: discord.Member, timeout: int, remaining: int) -> discord.
 
 
 
-def mine_placed(member: discord.Member, count: int) -> discord.Embed:
+def mine_placed(member: discord.abc.User, count: int) -> discord.Embed:
     return create_embed(
-        "Watch your step, Milord!",
+        "Watch your step!",
         f"{member.mention} just dropped {count} mine(s).",
         colour_key="landmine",
     )
@@ -150,7 +155,7 @@ def member_not_found() -> discord.Embed:
 
 def too_powerful(member: discord.Member) -> discord.Embed:
     return create_embed(
-        "... Eh?",
+        "That mine had no effect.",
         f"{member.mention} stepped on a mine, but they're too powerful!",
         colour_key="warning",
     )
@@ -167,7 +172,7 @@ def missing_permissions() -> discord.Embed:
 def forbidden_timeout() -> discord.Embed:
     return create_embed(
         "Permission Denied",
-        "Eh!? I'm sorry, Milord! I am not allowed to timeout this member.",
+        "Sorry, I am not allowed to time out this member.",
         colour_key="error",
     )
 
@@ -222,7 +227,7 @@ def config_updated(setting: str, value: int) -> discord.Embed:
 
 def invalid_setting(valid: tuple) -> discord.Embed:
     return create_embed(
-        "Oops!",
+        "Invalid setting",
         f"Choose from: {', '.join(valid)}",
         colour_key="error",
     )
@@ -230,7 +235,7 @@ def invalid_setting(valid: tuple) -> discord.Embed:
 
 def missing_value(setting: str, prefix: str) -> discord.Embed:
     return create_embed(
-        "Oops!",
+        "Missing value",
         f"Provide a new value for `{setting}`.\n"
         f"Example: `{prefix}lm config {setting} 200`",
         colour_key="error",
@@ -239,24 +244,24 @@ def missing_value(setting: str, prefix: str) -> discord.Embed:
 
 def value_at_least_one(setting: str) -> discord.Embed:
     return create_embed(
-        "Oops!",
-        f"`{setting}` must be at least 1, Milord.",
+        "Invalid value",
+        f"`{setting}` must be at least 1.",
         colour_key="error",
     )
 
 
 def timeout_minimum() -> discord.Embed:
     return create_embed(
-        "Oops!",
-        "Timeout duration must be at least 1 second, Milord.",
+        "Invalid timeout",
+        "Timeout duration must be at least 1 second.",
         colour_key="error",
     )
 
 
 def timeout_maximum() -> discord.Embed:
     return create_embed(
-        "Oops!",
-        "Timeout duration cannot exceed 180 seconds (3 minutes), Milord.",
+        "Invalid timeout",
+        "Timeout duration cannot exceed 180 seconds (3 minutes).",
         colour_key="error",
     )
 
@@ -288,7 +293,7 @@ def server_stats(
     total_placed: int,
     top_users: list,
     guild_name: str,
-    icon_url: str = None,
+    icon_url: Optional[str] = None,
 ) -> discord.Embed:
     embed = create_embed(f"Landmine Stats for `{guild_name}`", "")
     embed.add_field(name="Total Messages Sent", value=f"`{total_sent}`", inline=True)

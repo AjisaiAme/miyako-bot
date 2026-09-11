@@ -1,4 +1,4 @@
-#  Yamashiro Bot
+#  Miyako Bot
 
 A simple discord bot with basic server utilities... and landmines, Milord.
 
@@ -14,17 +14,17 @@ A simple discord bot with basic server utilities... and landmines, Milord.
 ### Installation
 ```bash
 # Clone repository
-git clone https://github.com/AjisaiAme/yamashiro-bot.git
+git clone https://github.com/AjisaiAme/miyako-bot.git
 
 # Enter directory
-cd yamashiro-bot
+cd miyako-bot
 
 # Install dependencies
 pip install discord.py python-dotenv aiohttp
 npm install
 ```
 
-To run Yamashiro:
+To run Miyako:
 ```
 python main.py
 ```
@@ -42,10 +42,10 @@ PREFIX=y! # default prefix
   - Message Content Intent
   
 ### Persistence
-Make sure that **SQLite** is installed on your system as it is needed to initialize `yamashiro_data.db` file, where landmine statistics, channel configurations, and active mine counts are stored. 
+Make sure that **SQLite** is installed on your system as it is needed to initialize the `miyako_data.db` file, where landmine statistics, channel configurations, and active mine counts are stored.
 
 ### Commands
-Yamashiro operates with the `y!` prefix. 
+Miyako operates with the `y!` prefix.
 
 | Command    | Alias | Description                               | Usage                            |
 | :--------- | :---- | :---------------------------------------- | :------------------------------- |

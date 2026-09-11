@@ -10,10 +10,10 @@ from config import BOT_TOKEN, PREFIX
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(name)s - %(message)s"
 )
-logger = logging.getLogger("Yamashiro")
+logger = logging.getLogger("Miyako")
 
 
-class YamashiroBot(commands.Bot):
+class MiyakoBot(commands.Bot):
     def __init__(self):
         intents = discord.Intents.default()
         intents.message_content = True
@@ -40,16 +40,16 @@ class YamashiroBot(commands.Bot):
     # activity
     async def on_ready(self):
         guild_count = len(self.guilds)
-        member_count = sum(guild.member_count for guild in self.guilds)
+        member_count = sum(
+            guild.member_count or 0 for guild in self.guilds
+        )
 
         activity_pool = [
             (discord.ActivityType.watching, f"Helping {guild_count} servers • {PREFIX}help"),
             (discord.ActivityType.playing, f"Playing with {member_count} users"),
             (discord.ActivityType.listening, f"{PREFIX}help in {guild_count} servers"),
             (discord.ActivityType.watching, f"Watching over {member_count} members"),
-            (discord.ActivityType.playing, "Playing with fire, Milord."),
-            (discord.ActivityType.listening, "Listening to your commands, Milord."),
-            (discord.ActivityType.watching, "Watching for landmines..."),
+            (discord.ActivityType.watching, f"Use {PREFIX}fl for Frontline maps!"),
         ]
         
         # choose a random activity
@@ -58,7 +58,12 @@ class YamashiroBot(commands.Bot):
 
         await self.change_presence(status=discord.Status.online, activity=activity)
 
-        logger.info(f"Yamashiro is ready as {self.user} (ID: {self.user.id})")
+        user = self.user
+        if user is None:
+            logger.error("Miyako is ready, but Discord did not provide the bot user.")
+            return
+
+        logger.info(f"Miyako is ready as {user} (ID: {user.id})")
         logger.info(f"Connected to {guild_count} servers with {member_count} members.")
 
 
@@ -67,7 +72,7 @@ async def main():
         logger.error("DISCORD_BOT_TOKEN missing in .env")
         return
 
-    bot = YamashiroBot()
+    bot = MiyakoBot()
     async with bot:
         await bot.start(BOT_TOKEN)
 
@@ -76,4 +81,4 @@ if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        logger.info("Yamashiro stopped...")
+        logger.info("Miyako stopped.")

@@ -14,11 +14,11 @@ from utils.utility_responses import (
     user_info_embed,
 )
 
-logger = logging.getLogger("Yamashiro.Utility")
+logger = logging.getLogger("Miyako.Utility")
 
 
 class Utility(commands.Cog):
-    """Essential services and general assistance, Milord!"""
+    """Essential services and general assistance."""
 
     def __init__(self, bot):
         self.bot = bot
@@ -79,13 +79,13 @@ class Utility(commands.Cog):
         await ctx.send(embed=server_info_embed(ctx.guild))
 
     @commands.command(name="userinfo", aliases=["whois", "ui"])
-    async def user_info(self, ctx, member: discord.Member = None):
+    async def user_info(self, ctx, member: Optional[discord.Member] = None):
         """Member dossier."""
         member = member or ctx.author
         await ctx.send(embed=user_info_embed(member))
 
     @commands.command(name="avatar", aliases=["av", "pfp"])
-    async def avatar_command(self, ctx, member: discord.Member = None):
+    async def avatar_command(self, ctx, member: Optional[discord.Member] = None):
         """High‑resolution portrait."""
         member = member or ctx.author
         await ctx.send(embed=avatar_embed(member))

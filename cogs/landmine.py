@@ -53,9 +53,9 @@ DEFAULT_TRIGGER_CHANCE = 100
 DEFAULT_TIMEOUT_DURATION = 30
 RATE_UP_TRIGGER_MULTIPLIER = 5
 RATE_UP_HOURS = (0, 3)
-DB_PATH = "yamashiro_data.db"
+DB_PATH = "miyako_data.db"
 
-logger = logging.getLogger("Yamashiro.Landmine")
+logger = logging.getLogger("Miyako.Landmine")
 
 
 class LandmineConfig:
@@ -77,7 +77,7 @@ class LandmineConfig:
 
 
 class Landmine(commands.Cog):
-    """Watch your step, Milord! Landmine module for Yamashiro."""
+    """Landmine module for Miyako."""
 
     def __init__(self, bot):
         self.bot = bot
@@ -269,14 +269,22 @@ class Landmine(commands.Cog):
 
     async def _trigger_landmine(self, message: discord.Message, config: LandmineConfig):
         """Apply the timeout and send a boom message."""
-        member = message.guild.get_member(message.author.id)
+        guild = message.guild
+        if guild is None:
+            return
+
+        member = guild.get_member(message.author.id)
         if not member:
             return await message.channel.send(embed=member_not_found())
 
-        if member.top_role >= message.guild.me.top_role:
+        bot_member = guild.me
+        if bot_member is None:
+            return await message.channel.send(embed=missing_permissions())
+
+        if member.top_role >= bot_member.top_role:
             return await message.channel.send(embed=too_powerful(member))
 
-        if not message.guild.me.guild_permissions.moderate_members:
+        if not bot_member.guild_permissions.moderate_members:
             return await message.channel.send(embed=missing_permissions())
 
         # decrement
@@ -315,6 +323,8 @@ class Landmine(commands.Cog):
 
         if await self._is_whitelisted(ctx.channel.id):
             config = await self._get_config(ctx.channel.id)
+            if config is None:
+                return await ctx.send(embed=not_enabled())
             active = await self._get_active_mines(ctx.channel.id)
             effective_trigger_chance = self._get_trigger_chance(config.trigger_chance)
             name, value, _ = current_config_field(
@@ -427,6 +437,8 @@ class Landmine(commands.Cog):
         # Show current configuration
         if setting is None:
             config = await self._get_config(ctx.channel.id)
+            if config is None:
+                return await ctx.send(embed=not_enabled())
             config_dict = {
                 "landmine_chance": config.landmine_chance,
                 "trigger_chance": config.trigger_chance,
@@ -491,6 +503,8 @@ class Landmine(commands.Cog):
             return await ctx.send(embed=no_danger())
 
         config = await self._get_config(ctx.channel.id)
+        if config is None:
+            return await ctx.send(embed=not_enabled())
         await self._trigger_landmine(ctx.message, config)
 
     @landmine_group.command(name="check")
@@ -505,7 +519,7 @@ class Landmine(commands.Cog):
         )
 
     @landmine_group.command(name="stats")
-    async def stats_command(self, ctx, member: discord.Member = None):
+    async def stats_command(self, ctx, member: Optional[discord.Member] = None):
         """View landmine statistics for yourself or another member."""
         member = member or ctx.author
         async with aiosqlite.connect(DB_PATH) as db:
@@ -530,7 +544,7 @@ class Landmine(commands.Cog):
         if not rows:
             return await ctx.send(
                 embed=discord.Embed(
-                    description="No data recorded yet, Milord.", colour=0x2F3136
+                    description="No data recorded yet.", colour=0x2F3136
                 )
             )
 
@@ -567,7 +581,10 @@ class Landmine(commands.Cog):
                 """,
                 member_ids,
             ) as cursor:
-                total_sent, total_triggered, total_placed = await cursor.fetchone()
+                row = await cursor.fetchone()
+                total_sent, total_triggered, total_placed = (
+                    row if row else (0, 0, 0)
+                )
 
             async with db.execute(
                 f"""
@@ -594,7 +611,7 @@ class Landmine(commands.Cog):
                 total_placed,
                 top_users,
                 ctx.guild.name,
-                icon_url=ctx.guild.icon.url if ctx.guild.icon else None,
+                icon_url=ctx.guild.icon.url if ctx.guild.icon else "",
             )
         )
 
