@@ -57,6 +57,7 @@ Yamashiro operates with the `y!` prefix.
 | `y!random` | -     | Generates a random number in a range.     | `y!random 1 100`                 |
 | `y!rate`   | -     | Ask the bot to rate something from 1-10.  | `y!rate this code`               |
 | `y!help`   | `y!h` | Displays the help menu for all commands.  | `y!help [command]`               |
+| `y!frontline` | `y!fl` | Shows the current Frontline map and upcoming rotation. | `y!fl` |
 
 ### Landmine Game
 
