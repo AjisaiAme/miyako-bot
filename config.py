@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN")
-PREFIX = os.getenv("PREFIX", "y!")
+PREFIX = os.getenv("PREFIX", "m!")
 
 EMBED_COLORS = {
     "success": 0xB2F2BB,  # mint
