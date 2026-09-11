@@ -1,5 +1,6 @@
 import discord
 from discord.utils import format_dt
+from discord.ext import commands
 from typing import Optional
 
 from .helpers import create_embed
@@ -62,6 +63,31 @@ def help_embed(
         if selected_section is None or selected_section == name:
             display_name = "Final Fantasy XIV" if name == "xiv" else name.title()
             embed.add_field(name=display_name, value=value, inline=False)
+    embed.set_footer(
+        text=f"Requested by {invoker.display_name}",
+        icon_url=invoker.display_avatar.url,
+    )
+    return embed
+
+
+def command_help_embed(
+    prefix: str, invoker: discord.Member, command: commands.Command
+) -> discord.Embed:
+    aliases = ", ".join(f"`{prefix}{alias}`" for alias in command.aliases)
+    usage = command.usage or command.signature
+    description = command.help or command.description or "No description available."
+
+    embed = create_embed(
+        title=f"{prefix}{command.name}",
+        description=description,
+        colour_key="default",
+    )
+    if usage:
+        embed.add_field(
+            name="Usage", value=f"`{prefix}{command.name} {usage}`", inline=False
+        )
+    if aliases:
+        embed.add_field(name="Aliases", value=aliases, inline=False)
     embed.set_footer(
         text=f"Requested by {invoker.display_name}",
         icon_url=invoker.display_avatar.url,

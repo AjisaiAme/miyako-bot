@@ -8,6 +8,7 @@ from discord.ext import commands
 from utils.utility_responses import (
     about_embed,
     avatar_embed,
+    command_help_embed,
     help_embed,
     ping_embed,
     server_info_embed,
@@ -45,8 +46,21 @@ class Utility(commands.Cog):
 
     # --- Commands ---
     @commands.command(name="help", aliases=["", "commands", "h"])
-    async def help_command(self, ctx, section: Optional[str] = None):
+    async def help_command(self, ctx, *, section: Optional[str] = None):
         """Main command directory."""
+        command = None
+        if section:
+            parts = section.lower().split()
+            command = self.bot.get_command(parts[0])
+            for part in parts[1:]:
+                if not isinstance(command, commands.Group):
+                    command = None
+                    break
+                command = command.get_command(part)
+        if command is not None:
+            return await ctx.send(
+                embed=command_help_embed(ctx.prefix, ctx.author, command)
+            )
         await ctx.send(embed=help_embed(ctx.prefix, ctx.author, section))
 
     @commands.command(name="ping")
