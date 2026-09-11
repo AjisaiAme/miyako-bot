@@ -8,6 +8,7 @@ BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 PREFIX = os.getenv("PREFIX", "m!")
 
 EMBED_COLORS = {
+    "default": 0xFFFFFF,  # white
     "success": 0xB2F2BB,  # mint
     "error": 0xFFADAD,  # rose
     "warning": 0xFFD6A5,  # orange

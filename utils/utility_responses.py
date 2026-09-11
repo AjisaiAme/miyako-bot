@@ -14,7 +14,7 @@ def help_embed(
     embed = create_embed(
         title="Hi!",
         description="Here are all the commands you can use.\n",
-        colour_key="info",
+        colour_key="default",
     )
     sections = {
         "utilities": (
@@ -74,7 +74,7 @@ def ping_embed(latency_ms: int) -> discord.Embed:
     return create_embed(
         title="Pong!",
         description=f"*That was quick.*\nLatency: **{latency_ms}ms**",
-        colour_key="success",
+        colour_key="default",
     )
 
 
@@ -93,7 +93,7 @@ def about_embed(
         title="About Miyako",
         description="*All systems are stable!*",
         fields=fields,
-        colour_key="utility",
+        colour_key="default",
     )
     embed.set_thumbnail(url=avatar_url)
     return embed
@@ -133,7 +133,7 @@ def server_info_embed(guild: discord.Guild) -> discord.Embed:
         title=guild.name,
         description=guild.description or "*No description recorded.*",
         fields=fields,
-        colour_key="utility",
+        colour_key="default",
     )
     if guild.icon:
         embed.set_thumbnail(url=guild.icon.url)
@@ -181,7 +181,7 @@ def user_info_embed(member: discord.Member) -> discord.Embed:
         title=f"{member.display_name}'s Record",
         description=f"{member.mention} | `{member.id}`",
         fields=fields,
-        colour_key="utility",
+        colour_key="default",
     )
     embed.set_thumbnail(url=member.display_avatar.url)
     if member.colour != discord.Color.default():

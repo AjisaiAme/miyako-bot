@@ -1,6 +1,7 @@
 import discord
 
 COLOURS = {
+    "default": 0xFFFFFF,
     "info": 0x2F3136,
     "success": 0x57F287,
     "warning": 0xFEE75C,
@@ -14,14 +15,14 @@ COLOURS = {
 def create_embed(
     title: str,
     description: str,
-    colour_key: str = "utility",
+    colour_key: str = "default",
     fields: list[tuple[str, str, bool]] | None = None,
 ) -> discord.Embed:
     """Build a consistent Discord embed."""
     embed = discord.Embed(
         title=title,
         description=description,
-        colour=COLOURS.get(colour_key, 0x2F3136),
+        colour=COLOURS.get(colour_key, COLOURS["default"]),
         timestamp=discord.utils.utcnow(),
     )
     if fields:
