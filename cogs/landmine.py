@@ -53,9 +53,9 @@ DEFAULT_TRIGGER_CHANCE = 100
 DEFAULT_TIMEOUT_DURATION = 30
 RATE_UP_TRIGGER_MULTIPLIER = 5
 RATE_UP_HOURS = (0, 3)
-DB_PATH = "yamashiro_data.db"
+DB_PATH = "miyako_data.db"
 
-logger = logging.getLogger("Yamashiro.Landmine")
+logger = logging.getLogger("Miyako.Landmine")
 
 
 class LandmineConfig:
@@ -77,7 +77,7 @@ class LandmineConfig:
 
 
 class Landmine(commands.Cog):
-    """Watch your step, Milord! Landmine module for Yamashiro."""
+    """Landmine game commands and event handling."""
 
     def __init__(self, bot):
         self.bot = bot
@@ -132,7 +132,7 @@ class Landmine(commands.Cog):
                 for ch_id, cnt in rows:
                     self._active_mines_cache[ch_id] = cnt
 
-        logger.info("Landmine systems fully initialised.")
+        logger.info("Landmine module initialised.")
 
     # config helper
     async def _get_config(self, channel_id: int) -> Optional["LandmineConfig"]:
@@ -332,7 +332,7 @@ class Landmine(commands.Cog):
             name, value, _ = channel_status_field(ctx.prefix)
             embed.add_field(name=name, value=value, inline=False)
 
-        embed.set_footer(text=f"Requested by {ctx.author.display_name}-sama")
+        embed.set_footer(text=f"Requested by {ctx.author.display_name}")
         await ctx.send(embed=embed)
 
     @landmine_group.command(name="allow")
@@ -530,7 +530,7 @@ class Landmine(commands.Cog):
         if not rows:
             return await ctx.send(
                 embed=discord.Embed(
-                    description="No data recorded yet, Milord.", colour=0x2F3136
+                    description="No data recorded yet.", colour=0x2F3136
                 )
             )
 

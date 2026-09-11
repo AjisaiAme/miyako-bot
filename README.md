@@ -1,6 +1,6 @@
-#  Yamashiro Bot
+# Miyako Bot
 
-A simple discord bot with basic server utilities... and landmines, Milord.
+A Discord bot with server utilities, games, landmines, and an FFXIV Frontline tracker.
 
 ---
 
@@ -24,28 +24,33 @@ pip install discord.py python-dotenv aiohttp
 npm install
 ```
 
-To run Yamashiro:
+To run Miyako:
 ```
 python main.py
 ```
 
 ### Configuration
+
 - Create `.env` on the project root.
+
 - Copy and paste your Discord bot token. Generate one at the [Discord Developer Portal](https://discord.com/developers/applications).
-```
+
+```env
 DISCORD_BOT_TOKEN=token_here
 PREFIX=y! # default prefix
 ```
+
 - The bot must have the following **Priviledged Gateway Intents**
   - Presence Intent
   - Server Members Intent
   - Message Content Intent
   
 ### Persistence
-Make sure that **SQLite** is installed on your system as it is needed to initialize `yamashiro_data.db` file, where landmine statistics, channel configurations, and active mine counts are stored. 
+Make sure that **SQLite** is installed on your system as it is needed to initialize `miyako_data.db`, where landmine statistics, channel configurations, and active mine counts are stored. 
 
 ### Commands
-Yamashiro operates with the `y!` prefix. 
+
+Miyako operates with the `y!` prefix. 
 
 | Command    | Alias | Description                               | Usage                            |
 | :--------- | :---- | :---------------------------------------- | :------------------------------- |
@@ -59,9 +64,9 @@ Yamashiro operates with the `y!` prefix.
 | `y!help`   | `y!h` | Displays the help menu for all commands.  | `y!help [command]`               |
 | `y!frontline` | `y!fl` | Shows the current Frontline map and upcoming rotation. | `y!fl` |
 
-### Landmine Game
+### Landmines
 
-Based on a funny bit from [Max0r's server](https://x.com/realMax0r/status/1982196340387188780). When enabled, landmines can drop with a 1% chance every time a message is sent, and another 1% chance to detonate it when present to time them out for 30 seconds (up to 3 minutes).
+Based on a funny bit from [Max0r's server](https://x.com/realMax0r/status/1982196340387188780). When enabled, landmines can drop with a 1% chance every time a message is sent, and another 1% chance to detonate it to time them out for 30 seconds (up to 3 minutes).
 
 To avoid being too annoying, the module must be **enabled per channel** by a server admin.
 
@@ -73,8 +78,8 @@ To avoid being too annoying, the module must be **enabled per channel** by a ser
 |`y!lm clear`|Clear all active mines from the current channel.|`y!lm clear`|
 |`y!lm check`|Shows the number of active mines in the channel.|`y!lm check`|
 |`y!lm drop [1-10]`|Manually places at a 10s cooldown).|`y!lm drop 5`|
-|`y!lm step`|Please don't do this... (5s cooldown).|`y!lm step`|
-|`y!lm stats [@user]`|Displays landmine statistics for a user.|`y!lm stats @Ajisai`|
+|`y!lm step`|Manually triggers a mine (5s cooldown).|`y!lm step`|
+|`y!lm stats [@user]`|Displays landmine statistics for a user.|`y!lm stats @ajisai_ame`|
 |`y!lm serverstats`|Shows server‑wide landmine statistics.|`y!lm serverstats`|
 |`y!lm top`|Global leaderboards of landmine statistics.|`y!lm top`|
 |`y!lm rateup`|Checks if the trigger rate‑up is currently active.|`y!lm rateup`|

@@ -14,11 +14,11 @@ from utils.utility_responses import (
     user_info_embed,
 )
 
-logger = logging.getLogger("Yamashiro.Utility")
+logger = logging.getLogger("Miyako.Utility")
 
 
 class Utility(commands.Cog):
-    """Essential services and general assistance, Milord!"""
+    """General utility commands."""
 
     def __init__(self, bot):
         self.bot = bot

@@ -4,13 +4,10 @@ from discord.utils import format_dt
 from .helpers import create_embed
 
 
-# --------------------------------------------------------------------------
-# Main Help
-# --------------------------------------------------------------------------
 def help_embed(prefix: str, invoker: discord.Member) -> discord.Embed:
     embed = create_embed(
-        title="Yamashiro at your service!",
-        description="*Greetings, Milord. I'll do my very best to assist you!*\n",
+        title="Miyako",
+        description="Available commands and server utilities.\n",
         colour_key="info",
     )
     embed.add_field(
@@ -19,8 +16,8 @@ def help_embed(prefix: str, invoker: discord.Member) -> discord.Embed:
             f"`{prefix}serverinfo` – Server overview\n"
             f"`{prefix}userinfo [@user]` – Detailed user profile\n"
             f"`{prefix}avatar [@user]` – View portrait\n"
-            f"`{prefix}ping` – Check my speed\n"
-            f"`{prefix}about` – My status report\n"
+            f"`{prefix}ping` – Check latency\n"
+            f"`{prefix}about` – View bot status\n"
         ),
         inline=False,
     )
@@ -35,11 +32,12 @@ def help_embed(prefix: str, invoker: discord.Member) -> discord.Embed:
             f"`{prefix}random [min] [max]` – Get a random integer\n"
             f"`{prefix}rate <thing>` – Rate something from 1–10\n"
             f"`{prefix}lm help` – Landmine mini-game\n"
+            f"`{prefix}frontline` – View the Frontline rotation\n"
         ),
         inline=False,
     )
     embed.set_footer(
-        text=f"Requested by {invoker.display_name}-sama",
+        text=f"Requested by {invoker.display_name}",
         icon_url=invoker.display_avatar.url,
     )
     return embed
@@ -48,8 +46,8 @@ def help_embed(prefix: str, invoker: discord.Member) -> discord.Embed:
 # ping
 def ping_embed(latency_ms: int) -> discord.Embed:
     return create_embed(
-        title="Pong!",
-        description=f"*I-I ran as fast as I could, Milord!*\nLatency: **{latency_ms}ms**",
+        title="Latency",
+        description=f"**{latency_ms}ms**",
         colour_key="success",
     )
 
@@ -66,8 +64,8 @@ def about_embed(
         ("Latency", f"`{latency_ms}ms`", True),
     ]
     embed = create_embed(
-        title="Yamashiro Status Report",
-        description="*All systems are stable and ready for your orders, Milord!*",
+        title="Bot Status",
+        description="The bot is operational.",
         fields=fields,
         colour_key="utility",
     )
@@ -107,7 +105,7 @@ def server_info_embed(guild: discord.Guild) -> discord.Embed:
 
     embed = create_embed(
         title=guild.name,
-        description=guild.description or "*No description recorded, Milord!*",
+        description=guild.description or "No description recorded.",
         fields=fields,
         colour_key="utility",
     )
@@ -154,7 +152,7 @@ def user_info_embed(member: discord.Member) -> discord.Embed:
     ]
 
     embed = create_embed(
-        title=f"{member.display_name}'s Record",
+        title=f"{member.display_name}'s Profile",
         description=f"{member.mention} | `{member.id}`",
         fields=fields,
         colour_key="utility",
@@ -170,7 +168,7 @@ def user_info_embed(member: discord.Member) -> discord.Embed:
 # --------------------------------------------------------------------------
 def avatar_embed(member: discord.Member) -> discord.Embed:
     embed = create_embed(
-        title=f"Portrait of {member.display_name}",
+        title=f"Avatar: {member.display_name}",
         description=f"[**Download Image**]({member.display_avatar.url})",
         colour_key="fun",
     )

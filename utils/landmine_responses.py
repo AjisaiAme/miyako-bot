@@ -3,7 +3,7 @@ from .helpers import create_embed
 
 def help_embed(prefix: str, now_str: str = None, in_rateup: bool = None) -> discord.Embed:
     desc = (
-        "*Watch your step, Milord! Your messages may trigger hidden explosives.*\n\n"
+        "Messages may trigger landmines.\n\n"
         f"Use `{prefix}lm allow` to enable the game in this channel."
     )
     if now_str is not None and in_rateup is not None:
@@ -29,7 +29,7 @@ def help_embed(prefix: str, now_str: str = None, in_rateup: bool = None) -> disc
         f"`{prefix}lm serverstats` – View server‑wide stats\n"
         f"`{prefix}lm top` – View global leaderboard\n"
         f"`{prefix}lm rateup` – Check for rate‑up times\n"
-        f"`{prefix}lm step` – Please don't, Milord...\n"
+        f"`{prefix}lm step` – Trigger a mine manually\n"
     )
     embed.add_field(name="Player Commands", value=user_cmds, inline=False)
     return embed
@@ -73,7 +73,7 @@ def current_config_field(
 def already_enabled(channel_mention: str) -> discord.Embed:
     return create_embed(
         "Already Enabled!",
-        f"Landmines are already active in {channel_mention}, Milord.",
+        f"Landmines are already active in {channel_mention}.",
         colour_key="info",
     )
 
@@ -81,7 +81,7 @@ def already_enabled(channel_mention: str) -> discord.Embed:
 def landmines_enabled(channel_mention: str) -> discord.Embed:
     return create_embed(
         "Landmines Enabled!",
-        f"Landmines are now active in {channel_mention}. Be careful, Milord!",
+        f"Landmines are now active in {channel_mention}.",
         colour_key="success",
     )
 
@@ -89,7 +89,7 @@ def landmines_enabled(channel_mention: str) -> discord.Embed:
 def already_restricted(channel_mention: str) -> discord.Embed:
     return create_embed(
         "Already Restricted!",
-        f"Landmines are already disabled in {channel_mention}, Milord.",
+        f"Landmines are already disabled in {channel_mention}.",
         colour_key="info",
     )
 
@@ -120,8 +120,8 @@ def mines_cleared(channel_mention: str) -> discord.Embed:
 
 def no_danger() -> discord.Embed:
     return create_embed(
-        "No danger in sight!",
-        "Walk freely, Milord!",
+        "No Active Mines",
+        "There are no active mines in this channel.",
         colour_key="info",
     )
 
@@ -132,13 +132,13 @@ def boom_embed(member: discord.Member, timeout: int, remaining: int) -> discord.
         f"They're timed out for **{timeout} seconds**\n\n"
         f"**{remaining}** landmine(s) remain"
     )
-    return create_embed("💥 BOOM!", desc, colour_key="landmine")
+    return create_embed("Landmine Triggered", desc, colour_key="landmine")
 
 
 
 def mine_placed(member: discord.Member, count: int) -> discord.Embed:
     return create_embed(
-        "Watch your step, Milord!",
+        "Mine Placed",
         f"{member.mention} just dropped {count} mine(s).",
         colour_key="landmine",
     )
@@ -150,8 +150,8 @@ def member_not_found() -> discord.Embed:
 
 def too_powerful(member: discord.Member) -> discord.Embed:
     return create_embed(
-        "... Eh?",
-        f"{member.mention} stepped on a mine, but they're too powerful!",
+        "Mine Triggered",
+        f"{member.mention} triggered a mine, but cannot be timed out.",
         colour_key="warning",
     )
 
@@ -167,7 +167,7 @@ def missing_permissions() -> discord.Embed:
 def forbidden_timeout() -> discord.Embed:
     return create_embed(
         "Permission Denied",
-        "Eh!? I'm sorry, Milord! I am not allowed to timeout this member.",
+        "I am not allowed to time out this member.",
         colour_key="error",
     )
 
@@ -240,7 +240,7 @@ def missing_value(setting: str, prefix: str) -> discord.Embed:
 def value_at_least_one(setting: str) -> discord.Embed:
     return create_embed(
         "Oops!",
-        f"`{setting}` must be at least 1, Milord.",
+        f"`{setting}` must be at least 1.",
         colour_key="error",
     )
 
@@ -248,7 +248,7 @@ def value_at_least_one(setting: str) -> discord.Embed:
 def timeout_minimum() -> discord.Embed:
     return create_embed(
         "Oops!",
-        "Timeout duration must be at least 1 second, Milord.",
+        "Timeout duration must be at least 1 second.",
         colour_key="error",
     )
 
@@ -256,7 +256,7 @@ def timeout_minimum() -> discord.Embed:
 def timeout_maximum() -> discord.Embed:
     return create_embed(
         "Oops!",
-        "Timeout duration cannot exceed 180 seconds (3 minutes), Milord.",
+        "Timeout duration cannot exceed 180 seconds (3 minutes).",
         colour_key="error",
     )
 
@@ -279,7 +279,7 @@ def global_top(rows: list) -> discord.Embed:
     lines = []
     for i, (user, trig) in enumerate(rows, 1):
         lines.append(f"{i}. **{user}** — {trig}")
-    return create_embed("Top Victims", "\n".join(lines))
+    return create_embed("Top Trigger Counts", "\n".join(lines))
 
 
 def server_stats(
@@ -297,7 +297,7 @@ def server_stats(
     )
     embed.add_field(name="Total Mines Placed", value=f"`{total_placed}`", inline=True)
     if top_users:
-        embed.add_field(name="Top Victims", value="\n".join(top_users), inline=False)
+        embed.add_field(name="Top Trigger Counts", value="\n".join(top_users), inline=False)
     if icon_url:
         embed.set_thumbnail(url=icon_url)
     return embed
