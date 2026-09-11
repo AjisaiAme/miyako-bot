@@ -1,6 +1,6 @@
 #  Miyako Bot
 
-A simple discord bot with basic server utilities... and landmines, Milord.
+A simple discord bot with basic server utilities... and landmines.
 
 ---
 
