@@ -2,6 +2,7 @@ import datetime
 import logging
 import random
 import zoneinfo
+from pathlib import Path
 from typing import Optional
 
 import aiosqlite
@@ -53,7 +54,7 @@ DEFAULT_TRIGGER_CHANCE = 100
 DEFAULT_TIMEOUT_DURATION = 30
 RATE_UP_TRIGGER_MULTIPLIER = 5
 RATE_UP_HOURS = (0, 3)
-DB_PATH = "miyako_data.db"
+DB_PATH = str(Path(__file__).resolve().parent.parent / "miyako_data.db")
 
 logger = logging.getLogger("Miyako.Landmine")
 
@@ -122,9 +123,6 @@ class Landmine(commands.Cog):
                 )
             """)
             await db.commit()
-
-        # warm the mine cache for all whitelisted channels on startup.
-        async with aiosqlite.connect(DB_PATH) as db:
             async with db.execute(
                 "SELECT channel_id, count FROM active_mines"
             ) as cursor:
@@ -160,6 +158,7 @@ class Landmine(commands.Cog):
             ) as cursor:
                 row = await cursor.fetchone()
                 if not row:
+                    self._config_cache[channel_id] = None
                     return None
                 config = LandmineConfig(row[0], row[1], row[2], row[3])
                 self._config_cache[channel_id] = config
@@ -234,6 +233,8 @@ class Landmine(commands.Cog):
     async def on_message(self, message: discord.Message):
         """Passive listener: trigger or place mines on every valid message."""
         if message.author.bot or not message.guild:
+            return
+        if not await self.bot.is_cog_enabled(message.guild.id, "Landmine"):
             return
 
         config = await self._get_config(message.channel.id)

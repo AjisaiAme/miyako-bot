@@ -10,6 +10,9 @@ from utils.utility_responses import (
     avatar_embed,
     command_help_embed,
     help_embed,
+    module_status_embed,
+    module_update_embed,
+    unknown_module_embed,
     ping_embed,
     server_info_embed,
     user_info_embed,
@@ -33,18 +36,18 @@ class Utility(commands.Cog):
             return int(match.group(1)) * units[match.group(2)]
         return None
 
-    # --- Listener (visual cue, left as‑is because it’s not a message) ---
+    # listener
     @commands.Cog.listener()
     async def on_command(self, ctx):
-        """Adds a lantern reaction to acknowledge commands."""
+        """Adds a reaction to acknowledge commands."""
         if ctx.command and ctx.command.cog_name == "Landmine":
             return
         try:
-            await ctx.message.add_reaction("🏮")
+            await ctx.message.add_reaction("✅")
         except (discord.Forbidden, discord.HTTPException):
             pass
 
-    # --- Commands ---
+    # main commands
     @commands.command(name="help", aliases=["", "commands", "h"])
     async def help_command(self, ctx, *, section: Optional[str] = None):
         """Main command directory."""
@@ -68,6 +71,39 @@ class Utility(commands.Cog):
         """Connection latency check."""
         latency = round(self.bot.latency * 1000)
         await ctx.send(embed=ping_embed(latency))
+
+    @commands.group(name="cog", aliases=["module"], invoke_without_command=True)
+    @commands.guild_only()
+    @commands.has_permissions(manage_guild=True)
+    async def module_control(self, ctx):
+        """View the server's cog status."""
+        lines = []
+        for key, cog_name in self.bot.managed_cogs.items():
+            status = "enabled" if await self.bot.is_cog_enabled(ctx.guild.id, cog_name) else "disabled"
+            lines.append(f"**{key}**: {status}")
+        await ctx.send(embed=module_status_embed(lines))
+
+    @module_control.command(name="enable")
+    async def enable_cog(self, ctx, cog_name: str):
+        """Enable a cog for this server."""
+        normalized = cog_name.lower()
+        if normalized not in self.bot.managed_cogs:
+            return await ctx.send(embed=unknown_module_embed(cog_name))
+        await self.bot.set_cog_enabled(
+            ctx.guild.id, self.bot.managed_cogs[normalized], True
+        )
+        await ctx.send(embed=module_update_embed(normalized, True))
+
+    @module_control.command(name="disable")
+    async def disable_cog(self, ctx, cog_name: str):
+        """Disable a cog for this server."""
+        normalized = cog_name.lower()
+        if normalized not in self.bot.managed_cogs:
+            return await ctx.send(embed=unknown_module_embed(cog_name))
+        await self.bot.set_cog_enabled(
+            ctx.guild.id, self.bot.managed_cogs[normalized], False
+        )
+        await ctx.send(embed=module_update_embed(normalized, False))
 
     @commands.command(name="about", aliases=["uptime", "status"])
     async def about(self, ctx):

@@ -25,6 +25,7 @@ def help_embed(
             f"`{prefix}avatar [@user]` (`{prefix}av`, `{prefix}pfp`) – View portrait\n"
             f"`{prefix}ping` – Check my speed\n"
             f"`{prefix}about` (`{prefix}uptime`, `{prefix}status`) – View my status\n"
+            f"`{prefix}cog` (`{prefix}module`) – View or manage Miyako's modules\n"
         ),
         "fun": (
             f"`{prefix}roll [dice]` – Roll dice with modifiers\n"
@@ -93,6 +94,47 @@ def command_help_embed(
         icon_url=invoker.display_avatar.url,
     )
     return embed
+
+
+def module_status_embed(status_lines: list[str]) -> discord.Embed:
+    return create_embed(
+        "Server Modules", "\n".join(status_lines), colour_key="default"
+    )
+
+
+def module_update_embed(module: str, enabled: bool) -> discord.Embed:
+    action = "Enabled" if enabled else "Disabled"
+    return create_embed(
+        f"Module {action}",
+        f"`{module}` is now {action.lower()} for this server.",
+        colour_key="default",
+    )
+
+
+def unknown_module_embed(module: str) -> discord.Embed:
+    return create_embed(
+        "Unknown Module",
+        f"`{module}` is not a managed module.",
+        colour_key="default",
+    )
+
+
+def module_disabled_embed(module: str, prefix: str) -> discord.Embed:
+    return create_embed(
+        "Module Disabled",
+        f"The `{module}` module is disabled in this server.\n"
+        f"An admin can enable it with `{prefix}cog enable {module}`.",
+        colour_key="default",
+    )
+
+
+def module_permission_embed(prefix: str) -> discord.Embed:
+    return create_embed(
+        "Permission Required",
+        "Only members with the `Manage Server` permission can change Miyako's modules.\n"
+        f"Use `{prefix}cog` to view the current module status.",
+        colour_key="default",
+    )
 
 
 # ping
