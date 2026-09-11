@@ -1,4 +1,3 @@
-import asyncio
 import datetime
 import logging
 import random
@@ -9,7 +8,45 @@ import aiosqlite
 import discord
 from discord.ext import commands
 
-from config import EMBED_COLORS, EMOJIS
+from utils.landmine_responses import (
+    # system
+    already_enabled,
+    already_restricted,
+    # landmine
+    boom_embed,
+    channel_status_field,
+    config_updated,
+    # config
+    config_view,
+    current_config_field,
+    forbidden_timeout,
+    global_top,
+    # general
+    help_embed,
+    invalid_setting,
+    landmines_enabled,
+    landmines_restricted,
+    # error
+    member_not_found,
+    mine_placed,
+    mines_cleared,
+    missing_permissions,
+    missing_value,
+    no_danger,
+    not_enabled,
+    # rateup
+    rateup,
+    server_stats,
+    timeout_maximum,
+    timeout_minimum,
+    too_powerful,
+    unexpected_error,
+    # stats
+    user_stats,
+    value_at_least_one,
+    # channels
+    whitelisted_channels,
+)
 
 DEFAULT_LANDMINE_CHANCE = 100
 DEFAULT_TRIGGER_CHANCE = 100
@@ -19,21 +56,6 @@ RATE_UP_HOURS = (0, 3)
 DB_PATH = "yamashiro_data.db"
 
 logger = logging.getLogger("Yamashiro.Landmine")
-
-
-def create_embed(
-    title: str, description: str, color_key="utility", fields=None
-) -> discord.Embed:
-    """Helper to generate consistent embeds"""
-    embed = discord.Embed(
-        title=title,
-        description=description,
-        color=EMBED_COLORS.get(color_key, 0x2F3136),
-    )
-    if fields:
-        for name, value, inline in fields:
-            embed.add_field(name=name, value=value, inline=inline)
-    return embed
 
 
 class LandmineConfig:
@@ -59,12 +81,12 @@ class Landmine(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
-        self.tz = zoneinfo.ZoneInfo("Asia/Manila")
-        self._cooldowns = {}
+        self.tz = zoneinfo.ZoneInfo("Asia/Singapore")
         self._config_cache = {}
+        self._active_mines_cache = {}
 
     async def cog_load(self):
-        """Initialize all database tables for the game."""
+        """Initialise all database tables and warm up the cache."""
         async with aiosqlite.connect(DB_PATH) as db:
             await db.execute("PRAGMA foreign_keys = ON")
 
@@ -73,7 +95,6 @@ class Landmine(commands.Cog):
                     channel_id INTEGER PRIMARY KEY
                 )
             """)
-
             await db.execute(f"""
                 CREATE TABLE IF NOT EXISTS landmine_config (
                     channel_id INTEGER PRIMARY KEY,
@@ -84,7 +105,6 @@ class Landmine(commands.Cog):
                         ON DELETE CASCADE
                 )
             """)
-
             await db.execute("""
                 CREATE TABLE IF NOT EXISTS user_stats (
                     user_id INTEGER PRIMARY KEY,
@@ -93,7 +113,6 @@ class Landmine(commands.Cog):
                     placed INTEGER DEFAULT 0
                 )
             """)
-
             await db.execute("""
                 CREATE TABLE IF NOT EXISTS active_mines (
                     channel_id INTEGER PRIMARY KEY,
@@ -102,11 +121,21 @@ class Landmine(commands.Cog):
                         ON DELETE CASCADE
                 )
             """)
-
             await db.commit()
-        logger.info("Landmine systems fully initialized.")
 
-    async def _get_config(self, channel_id: int) -> Optional[LandmineConfig]:
+        # warm the mine cache for all whitelisted channels on startup.
+        async with aiosqlite.connect(DB_PATH) as db:
+            async with db.execute(
+                "SELECT channel_id, count FROM active_mines"
+            ) as cursor:
+                rows = await cursor.fetchall()
+                for ch_id, cnt in rows:
+                    self._active_mines_cache[ch_id] = cnt
+
+        logger.info("Landmine systems fully initialised.")
+
+    # config helper
+    async def _get_config(self, channel_id: int) -> Optional["LandmineConfig"]:
         """Retrieve configuration for a channel. Returns None if not whitelisted."""
         if channel_id in self._config_cache:
             return self._config_cache[channel_id]
@@ -121,7 +150,7 @@ class Landmine(commands.Cog):
                 FROM whitelisted_channels w
                 LEFT JOIN landmine_config c ON w.channel_id = c.channel_id
                 WHERE w.channel_id = ?
-            """,
+                """,
                 (
                     DEFAULT_LANDMINE_CHANCE,
                     DEFAULT_TRIGGER_CHANCE,
@@ -137,18 +166,20 @@ class Landmine(commands.Cog):
                 return config
 
     async def _is_whitelisted(self, channel_id: int) -> bool:
-        """Checks if landmines are enabled in this channel."""
+        """Shorthand: True if the channel has landmines enabled."""
         return await self._get_config(channel_id) is not None
 
+    # rate-up helper
     def _get_trigger_chance(self, base_chance: int) -> int:
-        """Determines trigger probability based on time of day (Rate-up hours)."""
+        """Return the effective trigger chance, with rate‑up applied."""
         hour = datetime.datetime.now(self.tz).hour
         if RATE_UP_HOURS[0] <= hour <= RATE_UP_HOURS[1]:
             return max(1, int(base_chance / RATE_UP_TRIGGER_MULTIPLIER))
         return base_chance
 
+    # user stats
     async def _update_user_stat(self, user_id: int, stat_type: str, amount: int = 1):
-        """Atomically update a user statistic."""
+        """Atomically increment a user statistic."""
         async with aiosqlite.connect(DB_PATH) as db:
             await db.execute(
                 f"""
@@ -160,56 +191,48 @@ class Landmine(commands.Cog):
             )
             await db.commit()
 
+    # landmine tracker
     async def _get_active_mines(self, channel_id: int) -> int:
-        """Get current number of active mines in a channel."""
-        async with aiosqlite.connect(DB_PATH) as db:
-            async with db.execute(
-                "SELECT count FROM active_mines WHERE channel_id = ?", (channel_id,)
-            ) as cursor:
-                row = await cursor.fetchone()
-                return row[0] if row else 0
+        """Return cached count; fall back to DB if missing."""
+        if channel_id not in self._active_mines_cache:
+            async with aiosqlite.connect(DB_PATH) as db:
+                async with db.execute(
+                    "SELECT count FROM active_mines WHERE channel_id = ?",
+                    (channel_id,),
+                ) as cursor:
+                    row = await cursor.fetchone()
+                    self._active_mines_cache[channel_id] = row[0] if row else 0
+        return self._active_mines_cache[channel_id]
 
-    async def _update_active_mines(self, channel_id: int, amount: int):
-        """Add or remove mines from a channel. Ensures count never goes negative."""
+    async def _update_active_mines(self, channel_id: int, delta: int):
+        """Add delta mines, ensuring minimum of 0."""
+        current = await self._get_active_mines(channel_id)
+        new = max(0, current + delta)
+        self._active_mines_cache[channel_id] = new
         async with aiosqlite.connect(DB_PATH) as db:
             await db.execute(
-                """
-                INSERT INTO active_mines (channel_id, count)
-                VALUES (?, ?)
-                ON CONFLICT(channel_id) DO UPDATE SET count = max(0, count + ?)
-                """,
-                (channel_id, amount, amount),
+                "INSERT INTO active_mines (channel_id, count) VALUES (?, ?) "
+                "ON CONFLICT(channel_id) DO UPDATE SET count = ?",
+                (channel_id, new, new),
             )
             await db.commit()
 
     async def _set_active_mines(self, channel_id: int, count: int):
-        """Set the exact number of mines (non‑negative)."""
+        """Set the exact number of mines (≥ 0)."""
+        count = max(0, count)
+        self._active_mines_cache[channel_id] = count
         async with aiosqlite.connect(DB_PATH) as db:
             await db.execute(
-                """
-                INSERT INTO active_mines (channel_id, count)
-                VALUES (?, ?)
-                ON CONFLICT(channel_id) DO UPDATE SET count = ?
-                """,
-                (channel_id, max(0, count), max(0, count)),
+                "INSERT INTO active_mines (channel_id, count) VALUES (?, ?) "
+                "ON CONFLICT(channel_id) DO UPDATE SET count = ?",
+                (channel_id, count, count),
             )
             await db.commit()
 
-    async def _check_cooldown(
-        self, user_id: int, command_name: str, cooldown_seconds: int
-    ) -> bool:
-        """Return True if user is not on cooldown, else False."""
-        key = (user_id, command_name)
-        now = datetime.datetime.now().timestamp()
-        if key in self._cooldowns:
-            if now - self._cooldowns[key] < cooldown_seconds:
-                return False
-        self._cooldowns[key] = now
-        return True
-
+    # listener
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
-        """Passive listener for messages to trigger or place mines."""
+        """Passive listener: trigger or place mines on every valid message."""
         if message.author.bot or not message.guild:
             return
 
@@ -217,197 +240,122 @@ class Landmine(commands.Cog):
         if not config:
             return
 
-        prefix = await self.bot.get_prefix(message)
-        if message.content.startswith(
-            tuple(prefix) if isinstance(prefix, (list, tuple)) else prefix
-        ):
+        # ignore commands
+        prefixes = await self.bot.get_prefix(message)
+        if isinstance(prefixes, (list, tuple)):
+            if message.content.startswith(tuple(prefixes)):
+                return
+        elif message.content.startswith(prefixes):
             return
 
         await self._check_landmine(message, config)
 
     async def _check_landmine(self, message: discord.Message, config: LandmineConfig):
-        """Logic to decide if a message hits a mine or places a new one."""
-        await self._update_user_stat(message.author.id, "sent", 1)
-        active_mines = await self._get_active_mines(message.channel.id)
+        """Decide whether the message triggers a mine or places a new one."""
+        await self._update_user_stat(message.author.id, "sent")
 
-        if active_mines > 0:
+        active = await self._get_active_mines(message.channel.id)
+
+        # trigger a mine if present
+        if active > 0:
             trigger_chance = self._get_trigger_chance(config.trigger_chance)
             if random.random() < (1.0 / trigger_chance):
                 await self._trigger_landmine(message, config)
-                await self._update_active_mines(message.channel.id, -1)
                 return
 
+        # otherwise, place 1
         if random.random() < (1.0 / config.landmine_chance):
-            await self._place_landmine(message, config, count=1)
+            await self._place_landmine(message, count=1)
 
     async def _trigger_landmine(self, message: discord.Message, config: LandmineConfig):
-        """Handles the explosion, timeout, and stat update."""
+        """Apply the timeout and send a boom message."""
         member = message.guild.get_member(message.author.id)
-
         if not member:
-            return await message.channel.send(
-                embed=create_embed(
-                    f"{EMOJIS.get('shield', '🛡️')} Error",
-                    "Could not find member.",
-                    "warning",
-                )
-            )
+            return await message.channel.send(embed=member_not_found())
 
         if member.top_role >= message.guild.me.top_role:
-            return await message.channel.send(
-                embed=create_embed(
-                    f"{EMOJIS.get('shield', '🛡️')} Landmine Defused",
-                    f"{member.mention} stepped on a mine, but they are too powerful!",
-                    "warning",
-                )
-            )
+            return await message.channel.send(embed=too_powerful(member))
 
         if not message.guild.me.guild_permissions.moderate_members:
-            return await message.channel.send(
-                embed=create_embed(
-                    f"{EMOJIS.get('shield', '🛡️')} Permission Error",
-                    "I lack the `Moderate Members` permission to apply timeouts.",
-                    "error",
-                )
-            )
+            return await message.channel.send(embed=missing_permissions())
 
+        # decrement
+        await self._update_active_mines(message.channel.id, -1)
+
+        # timeout the chatter
         try:
             until = discord.utils.utcnow() + datetime.timedelta(
                 seconds=config.timeout_duration
             )
             await member.timeout(until, reason="Stepped on a landmine.")
-            await self._update_user_stat(message.author.id, "triggered", 1)
+            await self._update_user_stat(member.id, "triggered")
 
             remaining = await self._get_active_mines(message.channel.id)
-
-            embed = create_embed(
-                f"{EMOJIS.get('boom', '💥')} BOOM!",
-                f"{member.mention} stepped on a landmine! They are timed out for **{config.timeout_duration} seconds**\n\n"
-                f"💣 **{remaining}** landmine(s) remain",
-                "landmine",
-            )
+            embed = boom_embed(member, config.timeout_duration, remaining)
             await message.channel.send(embed=embed)
+
         except discord.Forbidden:
-            await message.channel.send(
-                embed=create_embed(
-                    f"{EMOJIS.get('shield', '🛡️')} Permission Denied",
-                    "Eh!? I'm sorry, Milord! I am not allowed to timeout this member.",
-                    "error",
-                )
-            )
+            await message.channel.send(embed=forbidden_timeout())
         except Exception as e:
             logger.error(f"Failed to trigger landmine timeout: {e}", exc_info=True)
-            await message.channel.send(
-                embed=create_embed(
-                    f"{EMOJIS.get('warning', '⚠️')} Error",
-                    "An unexpected error occurred while applying the timeout.",
-                    "error",
-                )
-            )
+            await message.channel.send(embed=unexpected_error())
 
-    async def _place_landmine(
-        self, message: discord.Message, config: LandmineConfig, count: int = 1
-    ):
-        """Places hidden mines in the channel."""
+    async def _place_landmine(self, message: discord.Message, count: int = 1):
+        """Place hidden mines and notify the channel."""
         await self._update_active_mines(message.channel.id, count)
         await self._update_user_stat(message.author.id, "placed", count)
-        await message.channel.send(
-            embed=create_embed(
-                f"{EMOJIS.get('landmine', '💣')} Watch your step, Milord!",
-                f"{message.author.mention} just dropped {count} mine(s).",
-                "landmine",
-            )
-        )
+        await message.channel.send(embed=mine_placed(message.author, count))
 
     @commands.group(name="landmine", aliases=["lm"], invoke_without_command=True)
     async def landmine_group(self, ctx):
-        """Main directory for Landmine commands."""
-        embed = create_embed(
-            title="💣 Landmine",
-            description=(
-                "*Watch your step, Milord! Messages may trigger hidden explosives.*\n\n"
-                f"Use `{ctx.prefix}lm allow` to enable the game in this channel."
-            ),
-            color_key="info",
-        )
+        """Main menu for the landmine game."""
+        now = datetime.datetime.now(self.tz)
+        in_rateup = RATE_UP_HOURS[0] <= now.hour <= RATE_UP_HOURS[1]
+        embed = help_embed(ctx.prefix, now.strftime("%H:%M"), in_rateup)
 
-        # Admin commands
-        admin_cmds = (
-            f"`{ctx.prefix}lm allow` – Enable the module in this channel\n"
-            f"`{ctx.prefix}lm restrict` – Disable and remove all mines from current channel\n"
-            f"`{ctx.prefix}lm config` – Adjust drop/trigger chances & timeout length\n"
-            f"`{ctx.prefix}lm clear` – Remove all active mines"
-        )
-        embed.add_field(name="Admin Commands", value=admin_cmds, inline=False)
-
-        # Player commands
-        user_cmds = (
-            f"`{ctx.prefix}lm step` – Intentionally step on a mine (5s cooldown)\n"
-            f"`{ctx.prefix}lm drop [1-10]` – Manually place mines (10s cooldown)\n"
-            f"`{ctx.prefix}lm check` – See how many mines are active\n"
-            f"`{ctx.prefix}lm stats [@user]` – View user stats\n"
-            f"`{ctx.prefix}lm serverstats` – View server‑wide stats\n"
-            f"`{ctx.prefix}lm top` – View global leaderboard\n"
-            f"`{ctx.prefix}lm rateup` – Check for rate-up times"
-        )
-        embed.add_field(name="Player Commands", value=user_cmds, inline=False)
-
-        # Show current channel configuration if enabled
         if await self._is_whitelisted(ctx.channel.id):
             config = await self._get_config(ctx.channel.id)
-            active_mines = await self._get_active_mines(ctx.channel.id)
-
-            config_text = (
-                f"**Landmine Odds:** `1 in {config.landmine_chance}` messages\n"
-                f"**Trigger Odds:** `1 in {config.trigger_chance}` messages\n"
-                f"**Timeout Duration:** `{config.timeout_duration} seconds`\n"
-                f"**Active Mines:** {active_mines}"
+            active = await self._get_active_mines(ctx.channel.id)
+            effective_trigger_chance = self._get_trigger_chance(config.trigger_chance)
+            name, value, _ = current_config_field(
+                ctx.channel.name,
+                {
+                    "landmine_chance": config.landmine_chance,
+                    "trigger_chance": config.trigger_chance,
+                    "timeout_duration": config.timeout_duration,
+                },
+                active,
+                effective_trigger_chance,
             )
-            embed.add_field(
-                name=f"Current Settings for `#{ctx.channel.name}`",
-                value=config_text,
-                inline=False,
-            )
+            embed.add_field(name=name, value=value, inline=False)
         else:
-            embed.add_field(
-                name="⚠️ Channel Status",
-                value=f"This channel is **not enabled** for landmines.\nUse `{ctx.prefix}lm allow` to activate.",
-                inline=False,
-            )
+            name, value, _ = channel_status_field(ctx.prefix)
+            embed.add_field(name=name, value=value, inline=False)
 
-        embed.set_footer(
-            text=f"Requested by {ctx.author.display_name} • {ctx.prefix}help lm for aliases"
-        )
+        embed.set_footer(text=f"Requested by {ctx.author.display_name}-sama")
         await ctx.send(embed=embed)
 
     @landmine_group.command(name="allow")
     @commands.has_permissions(administrator=True)
     async def allow_channel(self, ctx):
-        """Enables the landmine system for the current channel."""
+        """Enable landmines in the current channel."""
         if await self._is_whitelisted(ctx.channel.id):
-            return await ctx.send(
-                embed=create_embed(
-                    "Already Enabled!",
-                    f"Landmines are already active in {ctx.channel.mention}, Milord.",
-                    "info",
-                )
-            )
+            return await ctx.send(embed=already_enabled(ctx.channel.mention))
 
         async with aiosqlite.connect(DB_PATH) as db:
             await db.execute("PRAGMA foreign_keys = ON")
-
+            # Clean any leftover orphans
             await db.execute(
                 "DELETE FROM landmine_config WHERE channel_id = ?", (ctx.channel.id,)
             )
             await db.execute(
                 "DELETE FROM active_mines WHERE channel_id = ?", (ctx.channel.id,)
             )
-
+            # Insert
             await db.execute(
                 "INSERT INTO whitelisted_channels (channel_id) VALUES (?)",
                 (ctx.channel.id,),
             )
-
             await db.execute(
                 """
                 INSERT INTO landmine_config
@@ -424,31 +372,21 @@ class Landmine(commands.Cog):
             await db.commit()
 
         self._config_cache.pop(ctx.channel.id, None)
+        self._active_mines_cache.pop(
+            ctx.channel.id, None
+        )  # will be reloaded on next access
 
-        await ctx.send(
-            embed=create_embed(
-                "Landmines Enabled!",
-                f"Mines are now active in {ctx.channel.mention}. Be careful, Milord!",
-                "success",
-            )
-        )
+        await ctx.send(embed=landmines_enabled(ctx.channel.mention))
 
     @landmine_group.command(name="restrict")
     @commands.has_permissions(administrator=True)
     async def restrict_channel(self, ctx):
-        """Disables the landmine system for the current channel."""
+        """Disable landmines and clear all mines from the channel."""
         if not await self._is_whitelisted(ctx.channel.id):
-            return await ctx.send(
-                embed=create_embed(
-                    "Already Restricted!",
-                    f"Landmines are already disabled in {ctx.channel.mention}, Milord.",
-                    "info",
-                )
-            )
+            return await ctx.send(embed=already_restricted(ctx.channel.mention))
 
         async with aiosqlite.connect(DB_PATH) as db:
             await db.execute("PRAGMA foreign_keys = ON")
-
             await db.execute(
                 "DELETE FROM active_mines WHERE channel_id = ?", (ctx.channel.id,)
             )
@@ -462,147 +400,60 @@ class Landmine(commands.Cog):
             await db.commit()
 
         self._config_cache.pop(ctx.channel.id, None)
+        self._active_mines_cache.pop(ctx.channel.id, None)
 
-        await ctx.send(
-            embed=create_embed(
-                "Landmines Restricted!",
-                f"Mines have been cleared from {ctx.channel.mention}. The channel is now safe.",
-                "warning",
-            )
-        )
+        await ctx.send(embed=landmines_restricted(ctx.channel.mention))
 
     @landmine_group.command(name="clear")
     @commands.has_permissions(manage_messages=True)
     async def clear_mines(self, ctx):
-        """Remove all active mines from the current channel."""
+        """Delete all active mines from the channel."""
         if not await self._is_whitelisted(ctx.channel.id):
-            return await ctx.send(
-                embed=create_embed(
-                    "Not Enabled!",
-                    "Landmines are not active in this channel.",
-                    "warning",
-                )
-            )
+            return await ctx.send(embed=not_enabled())
         await self._set_active_mines(ctx.channel.id, 0)
-        await ctx.send(
-            embed=create_embed(
-                "🧹 Mines Cleared",
-                f"All active mines have been removed from {ctx.channel.mention}.",
-                "success",
-            )
-        )
+        await ctx.send(embed=mines_cleared(ctx.channel.mention))
 
     @landmine_group.command(name="config")
     @commands.has_permissions(administrator=True)
     async def config_command(
         self, ctx, setting: Optional[str] = None, value: Optional[int] = None
     ):
-        """
-        View or change per‑channel landmine settings.
-        Settings: landmine_chance, trigger_chance, timeout_duration
-        Example: `lm config trigger_chance 50`
-        """
+        """View or change per‑channel landmine settings."""
         if not await self._is_whitelisted(ctx.channel.id):
-            return await ctx.send(
-                embed=create_embed(
-                    "Not Enabled!",
-                    "Enable landmines first with `y!lm allow`.",
-                    "warning",
-                )
-            )
+            return await ctx.send(embed=not_enabled())
 
-        valid_settings = ("landmine_chance", "trigger_chance", "timeout_duration")
+        valid = ("landmine_chance", "trigger_chance", "timeout_duration")
 
+        # Show current configuration
         if setting is None:
             config = await self._get_config(ctx.channel.id)
-
-            fields = [
-                (
-                    "`landmine_chance`",
-                    (
-                        f"`1 in {config.landmine_chance}` messages\n"
-                        f"*Chance for any message to automatically drop a mine.*\n"
-                    ),
-                    False,
-                ),
-                (
-                    "`trigger_chance`",
-                    (
-                        f"`1 in {config.trigger_chance}` messages\n"
-                        f"*Chance to step on a mine when one is present.*\n"
-                    ),
-                    False,
-                ),
-                (
-                    "`timeout_duration`",
-                    (
-                        f"**Current:** `{config.timeout_duration}` seconds\n"
-                        f"*How long the user is timed out after triggering a mine.*\n"
-                        f"Can be set to a maximum of `180` seconds (3 minutes)."
-                    ),
-                    False,
-                ),
-            ]
-
-            embed = create_embed(
-                "Landmine Configuration",
-                f"Settings for {ctx.channel.mention}\n"
-                f"Use `{ctx.prefix}lm config <setting> <value>` to modify.",
-                "info",
-                fields=fields,
+            config_dict = {
+                "landmine_chance": config.landmine_chance,
+                "trigger_chance": config.trigger_chance,
+                "timeout_duration": config.timeout_duration,
+            }
+            return await ctx.send(
+                embed=config_view(ctx.prefix, ctx.channel.mention, config_dict)
             )
-            embed.set_footer(text="Admin only • Changes apply immediately")
-            return await ctx.send(embed=embed)
 
         setting = setting.lower()
-        if setting not in valid_settings:
-            return await ctx.send(
-                embed=create_embed(
-                    "Oops!",
-                    f"Choose from: {', '.join(valid_settings)}",
-                    "error",
-                )
-            )
+        if setting not in valid:
+            return await ctx.send(embed=invalid_setting(valid))
 
         if value is None:
-            return await ctx.send(
-                embed=create_embed(
-                    "Oops!",
-                    f"Provide a new value for `{setting}`.\n"
-                    f"Example: `{ctx.prefix}lm config {setting} 200`",
-                    "error",
-                )
-            )
+            return await ctx.send(embed=missing_value(setting, ctx.prefix))
 
-        # Validate numeric bounds
+        # Value validation
         if setting in ("landmine_chance", "trigger_chance") and value < 1:
-            return await ctx.send(
-                embed=create_embed(
-                    "Oops!",
-                    f"`{setting}` must be at least 1, Milord.",
-                    "error",
-                )
-            )
+            return await ctx.send(embed=value_at_least_one(setting))
 
         if setting == "timeout_duration":
             if value < 1:
-                return await ctx.send(
-                    embed=create_embed(
-                        "Oops!",
-                        "Timeout duration must be at least 1 second, Milord.",
-                        "error",
-                    )
-                )
-            if value > 180:  # 3 minutes
-                return await ctx.send(
-                    embed=create_embed(
-                        "Oops!",
-                        "Timeout duration cannot exceed 180 seconds (3 minutes), Milord.",
-                        "error",
-                    )
-                )
+                return await ctx.send(embed=timeout_minimum())
+            if value > 180:
+                return await ctx.send(embed=timeout_maximum())
 
-        # Update database
+        # Update DB & cache
         async with aiosqlite.connect(DB_PATH) as db:
             await db.execute(
                 f"""
@@ -615,100 +466,43 @@ class Landmine(commands.Cog):
             await db.commit()
 
         self._config_cache.pop(ctx.channel.id, None)
-        await ctx.send(
-            embed=create_embed(
-                "Configuration Updated!",
-                f"`{setting}` has been set to `{value}`.",
-                "success",
-            )
-        )
+
+        await ctx.send(embed=config_updated(setting, value))
 
     @landmine_group.command(name="drop")
     @commands.cooldown(1, 10, commands.BucketType.user)
     async def drop_command(self, ctx, count: int = 1):
-        """Allows a user to manually drop mines (1-10)."""
+        """Manually drop 1‑10 mines."""
         if not await self._is_whitelisted(ctx.channel.id):
-            return await ctx.send(
-                embed=create_embed(
-                    "Landmines Restricted!",
-                    "Landmines are not active in this channel.",
-                    "warning",
-                )
-            )
-
-        if not await self._check_cooldown(ctx.author.id, "drop", 10):
-            return await ctx.send(
-                embed=create_embed(
-                    "⏳ Cooldown",
-                    "C-calm down, Milord! Please wait before placing more mines...",
-                    "warning",
-                )
-            )
+            return await ctx.send(embed=not_enabled())
 
         count = max(1, min(count, 10))
-        config = await self._get_config(ctx.channel.id)
-        await self._place_landmine(ctx.message, config, count)
+        await self._place_landmine(ctx.message, count)
 
     @landmine_group.command(name="step")
     @commands.cooldown(1, 5, commands.BucketType.user)
     async def step_command(self, ctx):
-        """Take a deliberate step to test your luck."""
+        """Intentionally time yourself out."""
         if not await self._is_whitelisted(ctx.channel.id):
-            return await ctx.send(
-                embed=create_embed(
-                    "Safe!",
-                    "The floor is perfectly safe here, Milord.",
-                    "warning",
-                )
-            )
+            return await ctx.send(embed=not_enabled())
 
-        if not await self._check_cooldown(ctx.author.id, "step", 5):
-            return await ctx.send(
-                embed=create_embed(
-                    "⏳ Cooldown",
-                    "P-please take care, Milord! Wait a moment...",
-                    "warning",
-                )
-            )
-
-        active_mines = await self._get_active_mines(ctx.channel.id)
-        if active_mines <= 0:
-            return await ctx.send(
-                embed=create_embed(
-                    "No danger in sight!",
-                    "Walk freely, Milord!",
-                    "info",
-                )
-            )
+        active = await self._get_active_mines(ctx.channel.id)
+        if active <= 0:
+            return await ctx.send(embed=no_danger())
 
         config = await self._get_config(ctx.channel.id)
-        timeout_duration = (
-            config.timeout_duration if config else DEFAULT_TIMEOUT_DURATION
-        )
-
-        remaining = max(0, active_mines - 1)
-
-        await ctx.send(
-            embed=create_embed(
-                f"{EMOJIS.get('boom', '💥')} NOOO!",
-                f"{ctx.author.mention} intentionally stepped on a landmine! They are timed out for **{timeout_duration} seconds**\n\n"
-                f"**{remaining}** landmine(s) remain",
-                "landmine",
-            )
-        )
         await self._trigger_landmine(ctx.message, config)
 
     @landmine_group.command(name="check")
     async def check_command(self, ctx):
-        """Check if mines are enabled and how many are active."""
+        """Display how many mines are currently active."""
         active = await self._get_active_mines(ctx.channel.id)
-
-        embed = create_embed(
-            f"💣 Landmine Status for {ctx.channel.mention}",
-            f"There are **{active}** mine(s) in {ctx.channel.mention}",
-            "info",
+        await ctx.send(
+            embed=discord.Embed(
+                description=f"There are **{active}** mine(s) in {ctx.channel.mention}",
+                colour=0x2F3136,
+            )
         )
-        await ctx.send(embed=embed)
 
     @landmine_group.command(name="stats")
     async def stats_command(self, ctx, member: discord.Member = None):
@@ -722,22 +516,11 @@ class Landmine(commands.Cog):
                 row = await cursor.fetchone()
                 sent, trig, placed = row if row else (0, 0, 0)
 
-        fields = [
-            ("Messages Sent", f"`{sent}`", True),
-            ("Times Triggered", f"`{trig}`", True),
-            ("Mines Placed", f"`{placed}`", True),
-        ]
-        await ctx.send(
-            embed=create_embed(
-                f"Landmine Stats of `{member.display_name}`",
-                f"Activity in `{ctx.guild.name}`",
-                fields=fields,
-            )
-        )
+        await ctx.send(embed=user_stats(member, ctx.guild.name, sent, trig, placed))
 
     @landmine_group.command(name="top")
     async def top_command(self, ctx):
-        """Displays the global 'Most Stepped On' leaderboard."""
+        """Global leaderboard of most triggered users."""
         async with aiosqlite.connect(DB_PATH) as db:
             async with db.execute(
                 "SELECT user_id, triggered FROM user_stats ORDER BY triggered DESC LIMIT 10"
@@ -746,44 +529,33 @@ class Landmine(commands.Cog):
 
         if not rows:
             return await ctx.send(
-                embed=create_embed(
-                    "Global Leaderboard",
-                    "No data recorded yet, Milord.",
-                    "info",
+                embed=discord.Embed(
+                    description="No data recorded yet, Milord.", colour=0x2F3136
                 )
             )
 
-        leaderboard = []
-        for i, (uid, trig) in enumerate(rows, 1):
+        entries = []
+        for uid, trig in rows:
             user = self.bot.get_user(uid)
             name = user.name if user else f"Unknown ({uid})"
-            leaderboard.append(f"{i}. **{name}** — {trig} triggers")
+            entries.append((name, trig))
 
-        await ctx.send(
-            embed=create_embed(
-                "Top Victims",
-                "\n".join(leaderboard),
-                "info",
-            )
-        )
+        await ctx.send(embed=global_top(entries))
 
     @landmine_group.command(name="serverstats", aliases=["guildstats", "ss"])
-    async def server_stats(self, ctx):
-        """View total landmine activity across the entire server."""
+    async def server_stats_command(self, ctx):
+        """Show total landmine activity for the whole server."""
         member_ids = [m.id for m in ctx.guild.members if not m.bot]
-
         if not member_ids:
             return await ctx.send(
-                embed=create_embed(
-                    "Server Stats",
-                    "No human members found in this server.",
-                    "info",
+                embed=discord.Embed(
+                    description="No human members found in this server.",
+                    colour=0x2F3136,
                 )
             )
 
         async with aiosqlite.connect(DB_PATH) as db:
             placeholders = ",".join("?" for _ in member_ids)
-
             async with db.execute(
                 f"""
                 SELECT
@@ -795,10 +567,8 @@ class Landmine(commands.Cog):
                 """,
                 member_ids,
             ) as cursor:
-                row = await cursor.fetchone()
-                total_sent, total_triggered, total_placed = row
+                total_sent, total_triggered, total_placed = await cursor.fetchone()
 
-            # server top 5 (LIMIT x)
             async with db.execute(
                 f"""
                 SELECT user_id, triggered
@@ -817,59 +587,46 @@ class Landmine(commands.Cog):
             name = user.display_name if user else f"Unknown ({uid})"
             top_users.append(f"**{name}** — {trig}")
 
-        fields = [
-            ("Total Messages Sent", f"`{total_sent}`", True),
-            ("Total Mines Triggered", f"`{total_triggered}`", True),
-            ("Total Mines Placed", f"`{total_placed}`", True),
-        ]
-
-        embed = create_embed(
-            f"Landmine Stats for `{ctx.guild.name}`",
-            "info",
-            fields=fields,
-        )
-
-        if top_users:
-            embed.add_field(
-                name="Top Victims",
-                value="\n".join(top_users),
-                inline=False,
+        await ctx.send(
+            embed=server_stats(
+                total_sent,
+                total_triggered,
+                total_placed,
+                top_users,
+                ctx.guild.name,
+                icon_url=ctx.guild.icon.url if ctx.guild.icon else None,
             )
-
-        embed.set_thumbnail(url=ctx.guild.icon.url if ctx.guild.icon else None)
-        await ctx.send(embed=embed)
+        )
 
     @landmine_group.command(name="rateup")
     async def rateup_command(self, ctx):
-        """Show current rate‑up status and effective trigger chances."""
+        """Display the current rate‑up window and multiplier."""
         now = datetime.datetime.now(self.tz)
         hour = now.hour
         in_rateup = RATE_UP_HOURS[0] <= hour <= RATE_UP_HOURS[1]
+        await ctx.send(embed=rateup(now.strftime("%H:%M"), in_rateup))
 
-        description = f"Current time: {now.strftime('%H:%M')} (Asia/Manila)\n"
-        if in_rateup:
-            description += (
-                f"🌟 **Rate‑Up Active!** Trigger chance is multiplied by "
-                f"1/{RATE_UP_TRIGGER_MULTIPLIER}."
-            )
-        else:
-            description += "Rate‑up is not active. Trigger chances are normal."
+    @landmine_group.command(name="wl", aliases=["list", "whitelist"])
+    @commands.has_permissions(manage_guild=True)
+    async def list_whitelisted_channels(self, ctx):
+        """List all text channels in this server where landmines are enabled."""
+        text_channel_ids = [c.id for c in ctx.guild.text_channels]
 
-        embed = create_embed(
-            "⏰ Landmine Rate‑Up",
-            description,
-            "info" if not in_rateup else "landmine",
-            fields=[
-                (
-                    "Rate‑Up Hours",
-                    f"{RATE_UP_HOURS[0]}:00 – {RATE_UP_HOURS[1]}:00",
-                    True,
-                ),
-                ("Multiplier", f"1/{RATE_UP_TRIGGER_MULTIPLIER} of base chance", True),
-            ],
-        )
-        await ctx.send(embed=embed)
+        if not text_channel_ids:
+            return await ctx.send(embed=whitelisted_channels([]))
 
+        placeholders = ",".join("?" for _ in text_channel_ids)
+        async with aiosqlite.connect(DB_PATH) as db:
+            async with db.execute(
+                f"SELECT channel_id FROM whitelisted_channels WHERE channel_id IN ({placeholders})",
+                text_channel_ids,
+            ) as cur:
+                rows = await cur.fetchall()
 
+        whitelisted = [
+            ctx.guild.get_channel(cid) for (cid,) in rows if ctx.guild.get_channel(cid)
+        ]
+
+        await ctx.send(embed=whitelisted_channels(whitelisted))
 async def setup(bot):
     await bot.add_cog(Landmine(bot))

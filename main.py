@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import random
 
 import discord
 from discord.ext import commands
@@ -24,7 +25,7 @@ class YamashiroBot(commands.Bot):
             "cogs.fun",
             "cogs.utility",
             "cogs.landmine",
-            "cogs.blog_updates",
+            "cogs.xiv",
         ]
 
     async def setup_hook(self):
@@ -36,16 +37,25 @@ class YamashiroBot(commands.Bot):
             except Exception as e:
                 logger.error(f"Failed to load {ext}: {e}")
 
+    # activity
     async def on_ready(self):
-        # totals of guild (servers) and members
         guild_count = len(self.guilds)
         member_count = sum(guild.member_count for guild in self.guilds)
 
-        # Helping x servers • y!help
-        activity = discord.Activity(
-            type=discord.ActivityType.watching,
-            name=f"Helping {guild_count} servers • {PREFIX}help",
-        )
+        activity_pool = [
+            (discord.ActivityType.watching, f"Helping {guild_count} servers • {PREFIX}help"),
+            (discord.ActivityType.playing, f"Playing with {member_count} users"),
+            (discord.ActivityType.listening, f"{PREFIX}help in {guild_count} servers"),
+            (discord.ActivityType.watching, f"Watching over {member_count} members"),
+            (discord.ActivityType.playing, "Playing with fire, Milord."),
+            (discord.ActivityType.listening, "Listening to your commands, Milord."),
+            (discord.ActivityType.watching, "Watching for landmines..."),
+        ]
+        
+        # choose a random activity
+        activity_type, activity_name = random.choice(activity_pool)
+        activity = discord.Activity(type=activity_type, name=activity_name)
+
         await self.change_presence(status=discord.Status.online, activity=activity)
 
         logger.info(f"Yamashiro is ready as {self.user} (ID: {self.user.id})")
