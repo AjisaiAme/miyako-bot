@@ -342,7 +342,7 @@ class Landmine(commands.Cog):
             name, value, _ = channel_status_field(ctx.prefix)
             embed.add_field(name=name, value=value, inline=False)
 
-        embed.set_footer(text=f"Requested by {ctx.author.display_name}-sama")
+        embed.set_footer(text=f"Requested by {ctx.author.display_name}")
         await ctx.send(embed=embed)
 
     @landmine_group.command(name="allow")

@@ -1,5 +1,6 @@
 import discord
 from discord.utils import format_dt
+from typing import Optional
 
 from .helpers import create_embed
 
@@ -7,26 +8,24 @@ from .helpers import create_embed
 # --------------------------------------------------------------------------
 # Main Help
 # --------------------------------------------------------------------------
-def help_embed(prefix: str, invoker: discord.Member) -> discord.Embed:
+def help_embed(
+    prefix: str, invoker: discord.Member, section: Optional[str] = None
+) -> discord.Embed:
     embed = create_embed(
-        title="Miyako is here to help",
-        description="*Hi there. Here are the commands I can help with.*\n",
+        title="Hi!",
+        description="Here are all the commands you can use.\n",
         colour_key="info",
     )
-    embed.add_field(
-        name="Utilities",
-        value=(
-            f"`{prefix}serverinfo` – Server overview\n"
-            f"`{prefix}userinfo [@user]` – Detailed user profile\n"
-            f"`{prefix}avatar [@user]` – View portrait\n"
+    sections = {
+        "utilities": (
+            f"`{prefix}help` (`{prefix}h`, `{prefix}commands`) – Show this help menu\n"
+            f"`{prefix}serverinfo` (`{prefix}si`) – Server overview\n"
+            f"`{prefix}userinfo [@user]` (`{prefix}whois`, `{prefix}ui`) – Detailed user profile\n"
+            f"`{prefix}avatar [@user]` (`{prefix}av`, `{prefix}pfp`) – View portrait\n"
             f"`{prefix}ping` – Check my speed\n"
-            f"`{prefix}about` – My status report\n"
+            f"`{prefix}about` (`{prefix}uptime`, `{prefix}status`) – View my status\n"
         ),
-        inline=False,
-    )
-    embed.add_field(
-        name="Fun",
-        value=(
+        "fun": (
             f"`{prefix}roll [dice]` – Roll dice with modifiers\n"
             f"`{prefix}poll <string> <option1> <option2>` – Start a button poll\n"
             f"`{prefix}timer [minutes] [label]` – Set a countdown timer\n"
@@ -34,12 +33,37 @@ def help_embed(prefix: str, invoker: discord.Member) -> discord.Embed:
             f"`{prefix}flip [heads/tails]` – Toss a coin\n"
             f"`{prefix}random [min] [max]` – Get a random integer\n"
             f"`{prefix}rate <thing>` – Rate something from 1–10\n"
-            f"`{prefix}lm help` – Landmine mini-game\n"
         ),
-        inline=False,
-    )
+        "xiv": (
+            f"`{prefix}frontline` (`{prefix}fl`) – Show the current Frontline map and rotation\n"
+        ),
+        "landmine": (
+            f"`{prefix}landmine` (`{prefix}lm`) – Open the landmine menu\n"
+            f"`{prefix}lm allow` – Enable landmines in this channel\n"
+            f"`{prefix}lm restrict` – Disable landmines and clear active mines\n"
+            f"`{prefix}lm config [setting] [value]` – View or update settings\n"
+            f"`{prefix}lm clear` – Remove all active mines\n"
+            f"`{prefix}lm drop [1-10]` – Place mines manually\n"
+            f"`{prefix}lm step` – Trigger a mine yourself\n"
+            f"`{prefix}lm check` – Show active mines in this channel\n"
+            f"`{prefix}lm stats [@user]` – View landmine statistics\n"
+            f"`{prefix}lm serverstats` (`{prefix}lm ss`, `{prefix}lm guildstats`) – View server statistics\n"
+            f"`{prefix}lm top` – View the global leaderboard\n"
+            f"`{prefix}lm rateup` – Check the current rate-up status\n"
+            f"`{prefix}lm wl` (`{prefix}lm list`, `{prefix}lm whitelist`) – List enabled channels\n"
+        ),
+    }
+    section_aliases = {"utility": "utilities", "utils": "utilities", "final fantasy xiv": "xiv", "lm": "landmine"}
+    selected_section = section_aliases.get(section.lower(), section.lower()) if section else None
+    if selected_section not in sections:
+        selected_section = None
+
+    for name, value in sections.items():
+        if selected_section is None or selected_section == name:
+            display_name = "Final Fantasy XIV" if name == "xiv" else name.title()
+            embed.add_field(name=display_name, value=value, inline=False)
     embed.set_footer(
-        text=f"Requested by {invoker.display_name}-sama",
+        text=f"Requested by {invoker.display_name}",
         icon_url=invoker.display_avatar.url,
     )
     return embed
@@ -66,8 +90,8 @@ def about_embed(
         ("Latency", f"`{latency_ms}ms`", True),
     ]
     embed = create_embed(
-        title="Miyako Status Report",
-        description="*All systems are stable and ready to help.*",
+        title="About Miyako",
+        description="*All systems are stable!*",
         fields=fields,
         colour_key="utility",
     )

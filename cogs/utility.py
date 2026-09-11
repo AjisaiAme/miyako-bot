@@ -45,9 +45,9 @@ class Utility(commands.Cog):
 
     # --- Commands ---
     @commands.command(name="help", aliases=["", "commands", "h"])
-    async def help_command(self, ctx):
+    async def help_command(self, ctx, section: Optional[str] = None):
         """Main command directory."""
-        await ctx.send(embed=help_embed(ctx.prefix, ctx.author))
+        await ctx.send(embed=help_embed(ctx.prefix, ctx.author, section))
 
     @commands.command(name="ping")
     async def ping(self, ctx):

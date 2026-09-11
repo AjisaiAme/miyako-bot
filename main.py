@@ -20,6 +20,7 @@ class MiyakoBot(commands.Bot):
         intents.members = True
 
         super().__init__(command_prefix=PREFIX, intents=intents, help_command=None)
+        self.start_time = discord.utils.utcnow()
         # cog modules
         self.initial_extensions = [
             "cogs.fun",

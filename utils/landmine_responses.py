@@ -210,6 +210,7 @@ def config_view(prefix: str, channel_mention: str, config: dict) -> discord.Embe
         "Landmine Configuration",
         f"Settings for {channel_mention}\n"
         f"Use `{prefix}lm config <setting> <value>` to modify.",
+        colour_key="landmine",
     )
     for name, value, inline in fields:
         embed.add_field(name=name, value=value, inline=inline)
@@ -273,6 +274,7 @@ def user_stats(
     embed = create_embed(
         f"Landmine Stats of `{member.display_name}`",
         f"Activity in `{guild_name}`",
+        colour_key="landmine",
     )
     embed.add_field(name="Messages Sent", value=f"`{sent}`", inline=True)
     embed.add_field(name="Times Triggered", value=f"`{trig}`", inline=True)
@@ -284,7 +286,7 @@ def global_top(rows: list) -> discord.Embed:
     lines = []
     for i, (user, trig) in enumerate(rows, 1):
         lines.append(f"{i}. **{user}** — {trig}")
-    return create_embed("Top Victims", "\n".join(lines))
+    return create_embed("Top Victims", "\n".join(lines), colour_key="landmine")
 
 
 def server_stats(
@@ -295,7 +297,9 @@ def server_stats(
     guild_name: str,
     icon_url: Optional[str] = None,
 ) -> discord.Embed:
-    embed = create_embed(f"Landmine Stats for `{guild_name}`", "")
+    embed = create_embed(
+        f"Landmine Stats for `{guild_name}`", "", colour_key="landmine"
+    )
     embed.add_field(name="Total Messages Sent", value=f"`{total_sent}`", inline=True)
     embed.add_field(
         name="Total Mines Triggered", value=f"`{total_triggered}`", inline=True
@@ -329,11 +333,11 @@ def whitelisted_channels(channels: list) -> discord.Embed:
         return create_embed(
             "No Active Channels",
             "No channel has landmines enabled in this server.",
-            colour_key="info",
+            colour_key="landmine",
         )
 
     lines = "\n".join(
         f"{ch.mention if hasattr(ch, 'mention') else ch}" for ch in channels
     )
 
-    return create_embed("Whitelisted Channels", lines)
+    return create_embed("Whitelisted Channels", lines, colour_key="landmine")
