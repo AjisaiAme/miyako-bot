@@ -5,48 +5,54 @@ A simple discord bot with basic server utilities... and landmines.
 ---
 
 ### Requirements
-* **Python 3.8+**
-* **discord.py**
-* **aiohttp**
-* **SQLite**
+
+* **Python 3.10+**
+* A Discord bot application and token
 
 ---
-### Installation
-```bash
-# Clone repository
-git clone https://github.com/AjisaiAme/miyako-bot.git
 
-# Enter directory
+### Setup
+
+```bash
+git clone https://github.com/AjisaiAme/miyako-bot.git
 cd miyako-bot
 
+# Create and activate a virtual environment
+python -m venv .venv
+# Windows PowerShell
+.venv\Scripts\Activate.ps1
+# macOS/Linux: source .venv/bin/activate
+
 # Install dependencies
-pip install discord.py python-dotenv aiohttp
-npm install
+python -m pip install discord.py aiosqlite python-dotenv
 ```
 
-To run Miyako:
+Add `.env` in the project root:
 
-```
-python main.py
+```env
+DISCORD_BOT_TOKEN=your_token_here
+PREFIX=m! #default
 ```
 
 ### Configuration
 
-- Create `.env` on the project root.
-- Copy and paste your Discord bot token. Generate one at the [Discord Developer Portal](https://discord.com/developers/applications).
-```
-DISCORD_BOT_TOKEN=token_here
-PREFIX=m! # default prefix
+Create the bot and token in the [Discord Developer Portal](https://discord.com/developers/applications). Enable these **Privileged Gateway Intents**:
+
+* Presence Intent
+* Server Members Intent
+* Message Content Intent
+
+Invite the bot to your server with permissions to read and send messages, add reactions, and manage messages. The `m!cog` controls require the user to have **Manage Server**.
+
+### Run
+
+```bash
+python main.py
 ```
 
-- The bot must have the following **Priviledged Gateway Intents**
-  - Presence Intent
-  - Server Members Intent
-  - Message Content Intent
-  
 ### Persistence
 
-Make sure that **SQLite** is installed on your system as it is needed to initialize the `miyako_data.db` file, where landmine statistics, channel configurations, and active mine counts are stored.
+Landmine statistics, channel configurations, and active mine counts are stored in `miyako_data.db`. The database file is created automatically.
 
 ### Commands
 
@@ -62,6 +68,25 @@ Miyako operates with the `m!` prefix.
 | `m!random` | -     | Generates a random number in a range.     | `m!random 1 100`                 |
 | `m!rate`   | -     | Ask the bot to rate something from 1-10.  | `m!rate this code`               |
 | `m!help`   | `m!h` | Displays the help menu for all commands.  | `m!help [command]`               |
+
+### Server Modules
+
+Server administrators can enable or disable modules per server. These commands require the **Manage Server** permission.
+
+| Command | Description | Usage |
+| :------ | :---------- | :---- |
+| `m!cog` | Shows the current module status. | `m!cog` |
+| `m!cog enable <module>` | Enables a module for this server. | `m!cog enable xiv` |
+| `m!cog disable <module>` | Disables a module for this server. | `m!cog disable fun` |
+
+Available modules:
+
+- `utility` – Help, server information, profiles, and status commands
+- `fun` – Dice, polls, timers, games, and ratings
+- `landmine` – The landmine game and its statistics
+- `xiv` – Final Fantasy XIV-related functions
+
+The module control remains available when `utility` is disabled, so an administrator can restore it with `m!cog enable utility`.
 
 ### Final Fantasy XIV
 
