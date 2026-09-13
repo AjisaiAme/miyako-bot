@@ -9,6 +9,7 @@ import aiosqlite
 import discord
 from discord.ext import commands
 
+from config import PREFIX
 from utils.landmine_responses import (
     # system
     already_enabled,
@@ -37,6 +38,8 @@ from utils.landmine_responses import (
     not_enabled,
     # rateup
     rateup,
+    rateup_invalid,
+    rateup_updated,
     server_stats,
     timeout_maximum,
     timeout_minimum,
@@ -62,7 +65,16 @@ logger = logging.getLogger("Miyako.Landmine")
 class LandmineConfig:
     """Container for per-channel settings."""
 
-    __slots__ = ("channel_id", "landmine_chance", "trigger_chance", "timeout_duration")
+    __slots__ = (
+        "channel_id",
+        "landmine_chance",
+        "trigger_chance",
+        "timeout_duration",
+        "rateup_enabled",
+        "rateup_start_hour",
+        "rateup_end_hour",
+        "rateup_multiplier",
+    )
 
     def __init__(
         self,
@@ -70,11 +82,19 @@ class LandmineConfig:
         landmine_chance: int = DEFAULT_LANDMINE_CHANCE,
         trigger_chance: int = DEFAULT_TRIGGER_CHANCE,
         timeout_duration: int = DEFAULT_TIMEOUT_DURATION,
+        rateup_enabled: bool = True,
+        rateup_start_hour: int = RATE_UP_HOURS[0],
+        rateup_end_hour: int = RATE_UP_HOURS[1],
+        rateup_multiplier: int = RATE_UP_TRIGGER_MULTIPLIER,
     ):
         self.channel_id = channel_id
         self.landmine_chance = landmine_chance
         self.trigger_chance = trigger_chance
         self.timeout_duration = timeout_duration
+        self.rateup_enabled = rateup_enabled
+        self.rateup_start_hour = rateup_start_hour
+        self.rateup_end_hour = rateup_end_hour
+        self.rateup_multiplier = rateup_multiplier
 
 
 class Landmine(commands.Cog):
@@ -106,6 +126,23 @@ class Landmine(commands.Cog):
                         ON DELETE CASCADE
                 )
             """)
+            columns = {
+                row[1]
+                for row in await (await db.execute(
+                    "PRAGMA table_info(landmine_config)"
+                )).fetchall()
+            }
+            migrations = {
+                "rateup_enabled": "INTEGER DEFAULT 1",
+                "rateup_start_hour": f"INTEGER DEFAULT {RATE_UP_HOURS[0]}",
+                "rateup_end_hour": f"INTEGER DEFAULT {RATE_UP_HOURS[1]}",
+                "rateup_multiplier": f"INTEGER DEFAULT {RATE_UP_TRIGGER_MULTIPLIER}",
+            }
+            for name, definition in migrations.items():
+                if name not in columns:
+                    await db.execute(
+                        f"ALTER TABLE landmine_config ADD COLUMN {name} {definition}"
+                    )
             await db.execute("""
                 CREATE TABLE IF NOT EXISTS user_stats (
                     user_id INTEGER PRIMARY KEY,
@@ -144,7 +181,11 @@ class Landmine(commands.Cog):
                 SELECT w.channel_id,
                        COALESCE(c.landmine_chance, ?),
                        COALESCE(c.trigger_chance, ?),
-                       COALESCE(c.timeout_duration, ?)
+                       COALESCE(c.timeout_duration, ?),
+                       COALESCE(c.rateup_enabled, 1),
+                       COALESCE(c.rateup_start_hour, ?),
+                       COALESCE(c.rateup_end_hour, ?),
+                       COALESCE(c.rateup_multiplier, ?)
                 FROM whitelisted_channels w
                 LEFT JOIN landmine_config c ON w.channel_id = c.channel_id
                 WHERE w.channel_id = ?
@@ -153,6 +194,9 @@ class Landmine(commands.Cog):
                     DEFAULT_LANDMINE_CHANCE,
                     DEFAULT_TRIGGER_CHANCE,
                     DEFAULT_TIMEOUT_DURATION,
+                    RATE_UP_HOURS[0],
+                    RATE_UP_HOURS[1],
+                    RATE_UP_TRIGGER_MULTIPLIER,
                     channel_id,
                 ),
             ) as cursor:
@@ -160,7 +204,9 @@ class Landmine(commands.Cog):
                 if not row:
                     self._config_cache[channel_id] = None
                     return None
-                config = LandmineConfig(row[0], row[1], row[2], row[3])
+                config = LandmineConfig(
+                    row[0], row[1], row[2], row[3], bool(row[4]), row[5], row[6], row[7]
+                )
                 self._config_cache[channel_id] = config
                 return config
 
@@ -169,12 +215,18 @@ class Landmine(commands.Cog):
         return await self._get_config(channel_id) is not None
 
     # rate-up helper
-    def _get_trigger_chance(self, base_chance: int) -> int:
+    def _is_rateup(self, config: LandmineConfig, now=None) -> bool:
+        now = now or datetime.datetime.now(self.tz)
+        return (
+            config.rateup_enabled
+            and config.rateup_start_hour <= now.hour < config.rateup_end_hour
+        )
+
+    def _get_trigger_chance(self, config: LandmineConfig) -> int:
         """Return the effective trigger chance, with rate‑up applied."""
-        hour = datetime.datetime.now(self.tz).hour
-        if RATE_UP_HOURS[0] <= hour <= RATE_UP_HOURS[1]:
-            return max(1, int(base_chance / RATE_UP_TRIGGER_MULTIPLIER))
-        return base_chance
+        if self._is_rateup(config):
+            return max(1, int(config.trigger_chance / config.rateup_multiplier))
+        return config.trigger_chance
 
     # user stats
     async def _update_user_stat(self, user_id: int, stat_type: str, amount: int = 1):
@@ -259,7 +311,7 @@ class Landmine(commands.Cog):
 
         # trigger a mine if present
         if active > 0:
-            trigger_chance = self._get_trigger_chance(config.trigger_chance)
+            trigger_chance = self._get_trigger_chance(config)
             if random.random() < (1.0 / trigger_chance):
                 await self._trigger_landmine(message, config)
                 return
@@ -319,21 +371,23 @@ class Landmine(commands.Cog):
     async def landmine_group(self, ctx):
         """Main menu for the landmine game."""
         now = datetime.datetime.now(self.tz)
-        in_rateup = RATE_UP_HOURS[0] <= now.hour <= RATE_UP_HOURS[1]
+        config = await self._get_config(ctx.channel.id)
+        in_rateup = self._is_rateup(config, now) if config else False
         embed = help_embed(ctx.prefix, now.strftime("%H:%M"), in_rateup)
 
-        if await self._is_whitelisted(ctx.channel.id):
-            config = await self._get_config(ctx.channel.id)
-            if config is None:
-                return await ctx.send(embed=not_enabled())
+        if config is not None:
             active = await self._get_active_mines(ctx.channel.id)
-            effective_trigger_chance = self._get_trigger_chance(config.trigger_chance)
+            effective_trigger_chance = self._get_trigger_chance(config)
             name, value, _ = current_config_field(
                 ctx.channel.name,
                 {
                     "landmine_chance": config.landmine_chance,
                     "trigger_chance": config.trigger_chance,
                     "timeout_duration": config.timeout_duration,
+                    "rateup_enabled": config.rateup_enabled,
+                    "rateup_start_hour": config.rateup_start_hour,
+                    "rateup_end_hour": config.rateup_end_hour,
+                    "rateup_multiplier": config.rateup_multiplier,
                 },
                 active,
                 effective_trigger_chance,
@@ -444,9 +498,18 @@ class Landmine(commands.Cog):
                 "landmine_chance": config.landmine_chance,
                 "trigger_chance": config.trigger_chance,
                 "timeout_duration": config.timeout_duration,
+                "rateup_enabled": config.rateup_enabled,
+                "rateup_start_hour": config.rateup_start_hour,
+                "rateup_end_hour": config.rateup_end_hour,
+                "rateup_multiplier": config.rateup_multiplier,
             }
             return await ctx.send(
-                embed=config_view(ctx.prefix, ctx.channel.mention, config_dict)
+                embed=config_view(
+                    ctx.prefix,
+                    ctx.channel.mention,
+                    config_dict,
+                    self._get_trigger_chance(config),
+                )
             )
 
         setting = setting.lower()
@@ -617,12 +680,82 @@ class Landmine(commands.Cog):
         )
 
     @landmine_group.command(name="rateup")
-    async def rateup_command(self, ctx):
-        """Display the current rate‑up window and multiplier."""
+    @commands.has_permissions(administrator=True)
+    async def rateup_command(
+        self,
+        ctx,
+        action: Optional[str] = None,
+        value: Optional[int] = None,
+        end_hour: Optional[int] = None,
+    ):
+        """View or update the channel's rate-up settings."""
+        config = await self._get_config(ctx.channel.id)
+        if config is None:
+            return await ctx.send(embed=not_enabled())
+
+        if action:
+            action = action.lower()
+            if action in ("enable", "disable"):
+                config.rateup_enabled = action == "enable"
+            elif action == "hours":
+                if (
+                    value is None
+                    or end_hour is None
+                    or not 0 <= value <= 23
+                    or not 0 <= end_hour <= 23
+                    or value >= end_hour
+                ):
+                    return await ctx.send(
+                        embed=rateup_invalid("Use hours <start 0-23> <end 1-23>.")
+                    )
+                config.rateup_start_hour = value
+                config.rateup_end_hour = end_hour
+            elif action == "multiplier":
+                if value is None or value < 1:
+                    return await ctx.send(
+                        embed=rateup_invalid("Multiplier must be at least 1.")
+                    )
+                config.rateup_multiplier = value
+            else:
+                return await ctx.send(
+                    embed=rateup_invalid(
+                        "Use enable, disable, hours <start> <end>, or multiplier <value>."
+                    )
+                )
+
+            async with aiosqlite.connect(DB_PATH) as db:
+                await db.execute(
+                    """
+                    UPDATE landmine_config
+                    SET rateup_enabled = ?, rateup_start_hour = ?,
+                        rateup_end_hour = ?, rateup_multiplier = ?
+                    WHERE channel_id = ?
+                    """,
+                    (
+                        int(config.rateup_enabled),
+                        config.rateup_start_hour,
+                        config.rateup_end_hour,
+                        config.rateup_multiplier,
+                        ctx.channel.id,
+                    ),
+                )
+                await db.commit()
+            return await ctx.send(embed=rateup_updated(config))
+
         now = datetime.datetime.now(self.tz)
-        hour = now.hour
-        in_rateup = RATE_UP_HOURS[0] <= hour <= RATE_UP_HOURS[1]
-        await ctx.send(embed=rateup(now.strftime("%H:%M"), in_rateup))
+        await ctx.send(
+            embed=rateup(
+                now.strftime("%H:%M"),
+                self._is_rateup(config, now),
+                config.rateup_enabled,
+                config.rateup_start_hour,
+                config.rateup_end_hour,
+                config.rateup_multiplier,
+                config.trigger_chance,
+                self._get_trigger_chance(config),
+                ctx.prefix or PREFIX,
+            )
+        )
 
     @landmine_group.command(name="wl", aliases=["list", "whitelist"])
     @commands.has_permissions(manage_guild=True)

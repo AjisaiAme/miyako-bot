@@ -184,7 +184,22 @@ def unexpected_error() -> discord.Embed:
         colour_key="error",
     )
 
-def config_view(prefix: str, channel_mention: str, config: dict) -> discord.Embed:
+def config_view(
+    prefix: str,
+    channel_mention: str,
+    config: dict,
+    effective_trigger_chance: Optional[int] = None,
+) -> discord.Embed:
+    trigger_text = f"`1 in {config['trigger_chance']}` messages"
+    if (
+        effective_trigger_chance is not None
+        and effective_trigger_chance != config["trigger_chance"]
+    ):
+        trigger_text = (
+            f"Base: `1 in {config['trigger_chance']}` messages\n"
+            f"Rate-up: `1 in {effective_trigger_chance}` messages"
+        )
+
     fields = [
         (
             "`landmine_chance`",
@@ -194,7 +209,7 @@ def config_view(prefix: str, channel_mention: str, config: dict) -> discord.Embe
         ),
         (
             "`trigger_chance`",
-            f"`1 in {config['trigger_chance']}` messages\n"
+            f"{trigger_text}\n"
             "*Chance to step on a mine when one is present.*",
             False,
         ),
@@ -203,6 +218,15 @@ def config_view(prefix: str, channel_mention: str, config: dict) -> discord.Embe
             f"**Current:** `{config['timeout_duration']}` seconds\n"
             "*How long the user is timed out after triggering a mine.*\n"
             "Can be set to a maximum of `180` seconds (3 minutes).",
+            False,
+        ),
+        (
+            "`rateup`",
+            f"**Status:** `{'enabled' if config.get('rateup_enabled', True) else 'disabled'}`\n"
+            f"**Window:** `{config.get('rateup_start_hour', 0):02d}:00 - "
+            f"{config.get('rateup_end_hour', 3):02d}:00`\n"
+            f"**Multiplier:** `1/{config.get('rateup_multiplier', 5)}`\n"
+            "*Use `lm rateup` to update these settings.*",
             False,
         ),
     ]
@@ -313,18 +337,74 @@ def server_stats(
 
 
 # rate-up
-def rateup(now_str: str, in_rateup: bool) -> discord.Embed:
-    desc = f"Current time: {now_str} (Asia/Singapore)\n"
-    if in_rateup:
-        desc += "**Rate‑Up Active!**"
+def rateup(
+    now_str: str,
+    in_rateup: bool,
+    enabled: bool,
+    start_hour: int,
+    end_hour: int,
+    multiplier: int,
+    base_trigger_chance: int,
+    effective_trigger_chance: int,
+    prefix: str,
+) -> discord.Embed:
+    desc = f"Current time: `{now_str}` (Asia/Singapore)\n"
+    if not enabled:
+        status = "Disabled"
+        colour = "info"
+    elif in_rateup:
+        status = "Active"
+        colour = "landmine"
     else:
-        desc += "Rate‑up is not active."
-    embed = create_embed(
-        "Landmine Rate‑Up", desc, colour_key="landmine" if in_rateup else "info"
+        status = "Scheduled"
+        colour = "info"
+
+    embed = create_embed("Landmine Rate‑Up", desc, colour_key=colour)
+    embed.add_field(name="Status", value=f"**{status}**", inline=True)
+    embed.add_field(
+        name="Schedule",
+        value=f"`{start_hour:02d}:00 – {end_hour:02d}:00`",
+        inline=True,
     )
-    embed.add_field(name="Rate‑Up Hours", value="0:00 – 3:00", inline=True)
-    embed.add_field(name="Multiplier", value="1/5 of base chance", inline=True)
+    embed.add_field(
+        name="Trigger Odds",
+        value=(
+            f"Base: `1 in {base_trigger_chance}`\n"
+            f"Current: `1 in {effective_trigger_chance}`"
+        ),
+        inline=True,
+    )
+    embed.add_field(
+        name="Multiplier",
+        value=f"`1/{multiplier}` while active",
+        inline=True,
+    )
+    embed.add_field(
+        name="Admin Controls",
+            value=(
+                f"`{prefix}lm rateup enable` / `disable`\n"
+                f"`{prefix}lm rateup hours {start_hour} {end_hour}`\n"
+                f"`{prefix}lm rateup multiplier {multiplier}`"
+        ),
+        inline=False,
+    )
+    embed.set_footer(text="Rate-up settings apply to this channel.")
     return embed
+
+
+def rateup_invalid(message: str) -> discord.Embed:
+    return create_embed("Invalid Rate-Up Setting", message, colour_key="error")
+
+
+def rateup_updated(config) -> discord.Embed:
+    status = "enabled" if config.rateup_enabled else "disabled"
+    return create_embed(
+        "Rate-Up Updated",
+        f"Rate-up is now **{status}**.\n"
+        f"Window: `{config.rateup_start_hour:02d}:00 - {config.rateup_end_hour:02d}:00`\n"
+        f"Multiplier: `1/{config.rateup_multiplier}` of base chance.",
+        colour_key="success",
+    )
 
 
 # whitelists
