@@ -78,9 +78,12 @@ def about_embed(
 # --------------------------------------------------------------------------
 def server_info_embed(guild: discord.Guild) -> discord.Embed:
     bots = sum(m.bot for m in guild.members)
-    humans = guild.member_count - bots
+    total_members = guild.member_count or 0
+    humans = total_members - bots
 
-    boost_count = guild.premium_subscription_count
+    boost_count = guild.premium_subscription_count or 0
+    owner = guild.owner
+    owner_mention = owner.mention if owner else "Unknown"
     if boost_count >= 14:
         boost_level = "Level 3"
     elif boost_count >= 7:
@@ -91,12 +94,12 @@ def server_info_embed(guild: discord.Guild) -> discord.Embed:
         boost_level = "None"
 
     fields = [
-        ("Owner", guild.owner.mention, True),
+        ("Owner", owner_mention, True),
         ("Established", format_dt(guild.created_at, "R"), True),
         ("ID", f"`{guild.id}`", True),
         (
             "Members",
-            f"Total: {guild.member_count}\nHumans: {humans}\nBots: {bots}",
+            f"Total: {total_members}\nHumans: {humans}\nBots: {bots}",
             True,
         ),
         ("Assets", f"Channels: {len(guild.channels)}\nRoles: {len(guild.roles)}", True),
