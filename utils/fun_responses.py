@@ -1,3 +1,5 @@
+import discord
+
 from .helpers import create_embed
 
 def roll_result(total: int, details: str, is_landmine: bool) -> discord.Embed:

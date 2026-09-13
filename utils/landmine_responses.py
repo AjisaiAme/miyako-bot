@@ -1,9 +1,14 @@
+import discord
+from typing import Optional
+
 from .helpers import create_embed
 
 
-def help_embed(prefix: str, now_str: str = None, in_rateup: bool = None) -> discord.Embed:
+def help_embed(
+    prefix: str, now_str: Optional[str] = None, in_rateup: Optional[bool] = None
+) -> discord.Embed:
     desc = (
-        "Messages may trigger landmines.\n\n"
+"*Watch your step.* Messages may trigger landmines.\n\n"
         f"Use `{prefix}lm allow` to enable the game in this channel."
     )
     if now_str is not None and in_rateup is not None:
@@ -29,7 +34,7 @@ def help_embed(prefix: str, now_str: str = None, in_rateup: bool = None) -> disc
         f"`{prefix}lm serverstats` – View server‑wide stats\n"
         f"`{prefix}lm top` – View global leaderboard\n"
         f"`{prefix}lm rateup` – Check for rate‑up times\n"
-        f"`{prefix}lm step` – Trigger a mine manually\n"
+f"`{prefix}lm step` – Trigger a mine manually (best avoided)\n"
     )
     embed.add_field(name="Player Commands", value=user_cmds, inline=False)
     return embed
@@ -47,7 +52,7 @@ def current_config_field(
     channel_name: str,
     config: dict,
     active_mines: int,
-    effective_trigger_chance: int = None,
+    effective_trigger_chance: Optional[int] = None,
 ) -> tuple:
     trigger_chance = (
         effective_trigger_chance
@@ -81,7 +86,8 @@ def already_enabled(channel_mention: str) -> discord.Embed:
 def landmines_enabled(channel_mention: str) -> discord.Embed:
     return create_embed(
         "Landmines Enabled!",
-        f"Landmines are now active in {channel_mention}.",
+        f"Landmines are now active in {channel_mention}. Be careful!",
+
         colour_key="success",
     )
 
@@ -121,7 +127,8 @@ def mines_cleared(channel_mention: str) -> discord.Embed:
 def no_danger() -> discord.Embed:
     return create_embed(
         "No Active Mines",
-        "There are no active mines in this channel.",
+        "The path is clear. Walk freely!",
+
         colour_key="info",
     )
 
@@ -136,9 +143,12 @@ def boom_embed(member: discord.Member, timeout: int, remaining: int) -> discord.
 
 
 
-def mine_placed(member: discord.Member, count: int) -> discord.Embed:
+def mine_placed(member: discord.abc.User, count: int) -> discord.Embed:
     return create_embed(
         "Mine Placed",
+        f"{member.mention} just dropped {count} mine(s).",
+        colour_key="landmine",
+    )
         f"{member.mention} just dropped {count} mine(s).",
         colour_key="landmine",
     )
@@ -151,7 +161,9 @@ def member_not_found() -> discord.Embed:
 def too_powerful(member: discord.Member) -> discord.Embed:
     return create_embed(
         "Mine Triggered",
-        f"{member.mention} triggered a mine, but cannot be timed out.",
+        f"{member.mention} stepped on a mine, but they're too powerful to be timed out.",
+        colour_key="warning",
+    )
         colour_key="warning",
     )
 
@@ -167,7 +179,10 @@ def missing_permissions() -> discord.Embed:
 def forbidden_timeout() -> discord.Embed:
     return create_embed(
         "Permission Denied",
-        "I am not allowed to time out this member.",
+        "Permission Denied",
+        "Sorry, I am not allowed to time out this member.",
+        colour_key="error",
+    )
         colour_key="error",
     )
 
@@ -179,7 +194,22 @@ def unexpected_error() -> discord.Embed:
         colour_key="error",
     )
 
-def config_view(prefix: str, channel_mention: str, config: dict) -> discord.Embed:
+def config_view(
+    prefix: str,
+    channel_mention: str,
+    config: dict,
+    effective_trigger_chance: Optional[int] = None,
+) -> discord.Embed:
+    trigger_text = f"`1 in {config['trigger_chance']}` messages"
+    if (
+        effective_trigger_chance is not None
+        and effective_trigger_chance != config["trigger_chance"]
+    ):
+        trigger_text = (
+            f"Base: `1 in {config['trigger_chance']}` messages\n"
+            f"Rate-up: `1 in {effective_trigger_chance}` messages"
+        )
+
     fields = [
         (
             "`landmine_chance`",
@@ -189,7 +219,7 @@ def config_view(prefix: str, channel_mention: str, config: dict) -> discord.Embe
         ),
         (
             "`trigger_chance`",
-            f"`1 in {config['trigger_chance']}` messages\n"
+            f"{trigger_text}\n"
             "*Chance to step on a mine when one is present.*",
             False,
         ),
@@ -200,11 +230,21 @@ def config_view(prefix: str, channel_mention: str, config: dict) -> discord.Embe
             "Can be set to a maximum of `180` seconds (3 minutes).",
             False,
         ),
+        (
+            "`rateup`",
+            f"**Status:** `{'enabled' if config.get('rateup_enabled', True) else 'disabled'}`\n"
+            f"**Window:** `{config.get('rateup_start_hour', 0):02d}:00 - "
+            f"{config.get('rateup_end_hour', 3):02d}:00`\n"
+            f"**Multiplier:** `1/{config.get('rateup_multiplier', 5)}`\n"
+            "*Use `lm rateup` to update these settings.*",
+            False,
+        ),
     ]
     embed = create_embed(
         "Landmine Configuration",
         f"Settings for {channel_mention}\n"
         f"Use `{prefix}lm config <setting> <value>` to modify.",
+        colour_key="landmine",
     )
     for name, value, inline in fields:
         embed.add_field(name=name, value=value, inline=inline)
@@ -222,7 +262,7 @@ def config_updated(setting: str, value: int) -> discord.Embed:
 
 def invalid_setting(valid: tuple) -> discord.Embed:
     return create_embed(
-        "Oops!",
+        "Invalid setting",
         f"Choose from: {', '.join(valid)}",
         colour_key="error",
     )
@@ -230,7 +270,7 @@ def invalid_setting(valid: tuple) -> discord.Embed:
 
 def missing_value(setting: str, prefix: str) -> discord.Embed:
     return create_embed(
-        "Oops!",
+        "Missing value",
         f"Provide a new value for `{setting}`.\n"
         f"Example: `{prefix}lm config {setting} 200`",
         colour_key="error",
@@ -239,7 +279,10 @@ def missing_value(setting: str, prefix: str) -> discord.Embed:
 
 def value_at_least_one(setting: str) -> discord.Embed:
     return create_embed(
-        "Oops!",
+        "Invalid value",
+        f"`{setting}` must be at least 1.",
+        colour_key="error",
+    )
         f"`{setting}` must be at least 1.",
         colour_key="error",
     )
@@ -247,7 +290,10 @@ def value_at_least_one(setting: str) -> discord.Embed:
 
 def timeout_minimum() -> discord.Embed:
     return create_embed(
-        "Oops!",
+        "Invalid timeout",
+        "Timeout duration must be at least 1 second.",
+        colour_key="error",
+    )
         "Timeout duration must be at least 1 second.",
         colour_key="error",
     )
@@ -255,7 +301,10 @@ def timeout_minimum() -> discord.Embed:
 
 def timeout_maximum() -> discord.Embed:
     return create_embed(
-        "Oops!",
+        "Invalid timeout",
+        "Timeout duration cannot exceed 180 seconds (3 minutes).",
+        colour_key="error",
+    )
         "Timeout duration cannot exceed 180 seconds (3 minutes).",
         colour_key="error",
     )
@@ -268,6 +317,7 @@ def user_stats(
     embed = create_embed(
         f"Landmine Stats of `{member.display_name}`",
         f"Activity in `{guild_name}`",
+        colour_key="landmine",
     )
     embed.add_field(name="Messages Sent", value=f"`{sent}`", inline=True)
     embed.add_field(name="Times Triggered", value=f"`{trig}`", inline=True)
@@ -279,7 +329,7 @@ def global_top(rows: list) -> discord.Embed:
     lines = []
     for i, (user, trig) in enumerate(rows, 1):
         lines.append(f"{i}. **{user}** — {trig}")
-    return create_embed("Top Trigger Counts", "\n".join(lines))
+    return create_embed("Top Trigger Counts", "\n".join(lines), colour_key="landmine")
 
 
 def server_stats(
@@ -288,9 +338,11 @@ def server_stats(
     total_placed: int,
     top_users: list,
     guild_name: str,
-    icon_url: str = None,
+    icon_url: Optional[str] = None,
 ) -> discord.Embed:
-    embed = create_embed(f"Landmine Stats for `{guild_name}`", "")
+    embed = create_embed(
+        f"Landmine Stats for `{guild_name}`", "", colour_key="landmine"
+    )
     embed.add_field(name="Total Messages Sent", value=f"`{total_sent}`", inline=True)
     embed.add_field(
         name="Total Mines Triggered", value=f"`{total_triggered}`", inline=True
@@ -304,18 +356,74 @@ def server_stats(
 
 
 # rate-up
-def rateup(now_str: str, in_rateup: bool) -> discord.Embed:
-    desc = f"Current time: {now_str} (Asia/Singapore)\n"
-    if in_rateup:
-        desc += "**Rate‑Up Active!**"
+def rateup(
+    now_str: str,
+    in_rateup: bool,
+    enabled: bool,
+    start_hour: int,
+    end_hour: int,
+    multiplier: int,
+    base_trigger_chance: int,
+    effective_trigger_chance: int,
+    prefix: str,
+) -> discord.Embed:
+    desc = f"Current time: `{now_str}` (Asia/Singapore)\n"
+    if not enabled:
+        status = "Disabled"
+        colour = "info"
+    elif in_rateup:
+        status = "Active"
+        colour = "landmine"
     else:
-        desc += "Rate‑up is not active."
-    embed = create_embed(
-        "Landmine Rate‑Up", desc, colour_key="landmine" if in_rateup else "info"
+        status = "Scheduled"
+        colour = "info"
+
+    embed = create_embed("Landmine Rate‑Up", desc, colour_key=colour)
+    embed.add_field(name="Status", value=f"**{status}**", inline=True)
+    embed.add_field(
+        name="Schedule",
+        value=f"`{start_hour:02d}:00 – {end_hour:02d}:00`",
+        inline=True,
     )
-    embed.add_field(name="Rate‑Up Hours", value="0:00 – 3:00", inline=True)
-    embed.add_field(name="Multiplier", value="1/5 of base chance", inline=True)
+    embed.add_field(
+        name="Trigger Odds",
+        value=(
+            f"Base: `1 in {base_trigger_chance}`\n"
+            f"Current: `1 in {effective_trigger_chance}`"
+        ),
+        inline=True,
+    )
+    embed.add_field(
+        name="Multiplier",
+        value=f"`1/{multiplier}` while active",
+        inline=True,
+    )
+    embed.add_field(
+        name="Admin Controls",
+            value=(
+                f"`{prefix}lm rateup enable` / `disable`\n"
+                f"`{prefix}lm rateup hours {start_hour} {end_hour}`\n"
+                f"`{prefix}lm rateup multiplier {multiplier}`"
+        ),
+        inline=False,
+    )
+    embed.set_footer(text="Rate-up settings apply to this channel.")
     return embed
+
+
+def rateup_invalid(message: str) -> discord.Embed:
+    return create_embed("Invalid Rate-Up Setting", message, colour_key="error")
+
+
+def rateup_updated(config) -> discord.Embed:
+    status = "enabled" if config.rateup_enabled else "disabled"
+    return create_embed(
+        "Rate-Up Updated",
+        f"Rate-up is now **{status}**.\n"
+        f"Window: `{config.rateup_start_hour:02d}:00 - {config.rateup_end_hour:02d}:00`\n"
+        f"Multiplier: `1/{config.rateup_multiplier}` of base chance.",
+        colour_key="success",
+    )
 
 
 # whitelists
@@ -324,11 +432,11 @@ def whitelisted_channels(channels: list) -> discord.Embed:
         return create_embed(
             "No Active Channels",
             "No channel has landmines enabled in this server.",
-            colour_key="info",
+            colour_key="landmine",
         )
 
     lines = "\n".join(
         f"{ch.mention if hasattr(ch, 'mention') else ch}" for ch in channels
     )
 
-    return create_embed("Whitelisted Channels", lines)
+    return create_embed("Whitelisted Channels", lines, colour_key="landmine")

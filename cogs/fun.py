@@ -2,6 +2,7 @@ import asyncio
 import random
 import re
 from datetime import datetime, timezone
+from typing import Optional
 
 import discord
 from discord.ext import commands
@@ -54,7 +55,9 @@ class PollView(discord.ui.View):
 
 class PollButton(discord.ui.Button):
     async def callback(self, interaction: discord.Interaction):
-        view: PollView = self.view
+        view = self.view
+        if not isinstance(view, PollView):
+            return
         for opt in view.votes:
             if interaction.user.id in view.votes[opt]:
                 view.votes[opt].remove(interaction.user.id)
@@ -120,7 +123,7 @@ class Fun(commands.Cog):
         if not 2 <= len(options) <= 10:
             return await ctx.send(embed=poll_options_count())
 
-        view = PollView(options, ctx.author, timeout=5)
+        view = PollView(list(options), ctx.author, timeout=5)
         msg = await ctx.send(embed=poll_start(question), view=view)
         await view.wait()
 
@@ -163,7 +166,7 @@ class Fun(commands.Cog):
         await ctx.send(embed=choose_result(random.choice(choices)))
 
     @commands.command(name="flip", help="Flips a coin.", usage="[heads/tails]")
-    async def flip(self, ctx, guess: str = None):
+    async def flip(self, ctx, guess: Optional[str] = None):
         res = random.choice(["Heads", "Tails"])
         if guess and guess.capitalize() in ["Heads", "Tails"]:
             won = guess.capitalize() == res
