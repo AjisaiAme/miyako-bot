@@ -17,17 +17,15 @@ def help_embed(
         description="Available commands and server utilities.\n",
         colour_key="info",
     )
-    embed.add_field(
-        name="Utilities",
-        value=(
+
+    sections = {
+        "utilities": (
             f"`{prefix}serverinfo` – Server overview\n"
             f"`{prefix}userinfo [@user]` – Detailed user profile\n"
             f"`{prefix}avatar [@user]` – View portrait\n"
             f"`{prefix}ping` – Check latency\n"
             f"`{prefix}about` – View bot status\n"
             f"`{prefix}cog` (`{prefix}module`) – View or manage Miyako's modules\n"
-        ),
-
         ),
         "fun": (
             f"`{prefix}roll [dice]` – Roll dice with modifiers\n"
@@ -37,16 +35,7 @@ def help_embed(
             f"`{prefix}flip [heads/tails]` – Toss a coin\n"
             f"`{prefix}random [min] [max]` – Get a random integer\n"
             f"`{prefix}rate <thing>` – Rate something from 1–10\n"
-        ),
-        "fun": (
-            f"`{prefix}roll [dice]` – Roll dice with modifiers\n"
-            f"`{prefix}flip [heads/tails]` – Toss a coin\n"
-            f"`{prefix}random [min] [max]` – Get a random integer\n"
-            f"`{prefix}rate <thing>` – Rate something from 1–10\n"
             f"`{prefix}lm help` – Landmine mini-game\n"
-            f"`{prefix}frontline` – View the Frontline rotation\n"
-        ),
-
         ),
         "xiv": (
             f"`{prefix}frontline` (`{prefix}fl`) – Show the current Frontline map and rotation\n"
@@ -67,8 +56,15 @@ def help_embed(
             f"`{prefix}lm wl` (`{prefix}lm list`, `{prefix}lm whitelist`) – List enabled channels\n"
         ),
     }
-    section_aliases = {"utility": "utilities", "utils": "utilities", "final fantasy xiv": "xiv", "lm": "landmine"}
-    selected_section = section_aliases.get(section.lower(), section.lower()) if section else None
+    section_aliases = {
+        "utility": "utilities",
+        "utils": "utilities",
+        "final fantasy xiv": "xiv",
+        "lm": "landmine",
+    }
+    selected_section = (
+        section_aliases.get(section.lower(), section.lower()) if section else None
+    )
     if selected_section not in sections:
         selected_section = None
 
@@ -156,7 +152,6 @@ def ping_embed(latency_ms: int) -> discord.Embed:
         description=f"*That was quick.*\nLatency: **{latency_ms}ms**",
         colour_key="default",
     )
-    )
 
 
 def about_embed(
@@ -181,9 +176,6 @@ def about_embed(
     return embed
 
 
-# --------------------------------------------------------------------------
-# Server Info
-# --------------------------------------------------------------------------
 def server_info_embed(guild: discord.Guild) -> discord.Embed:
     bots = sum(m.bot for m in guild.members)
     total_members = guild.member_count or 0

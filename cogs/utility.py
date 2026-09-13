@@ -22,7 +22,7 @@ logger = logging.getLogger("Miyako.Utility")
 
 
 class Utility(commands.Cog):
-"""Essential services and general utility commands."""
+    """Essential services and general utility commands."""
 
     def __init__(self, bot):
         self.bot = bot

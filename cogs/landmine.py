@@ -98,7 +98,7 @@ class LandmineConfig:
 
 
 class Landmine(commands.Cog):
-"""Landmine game commands and event handling for Miyako."""
+    """Landmine game commands and event handling for Miyako."""
 
     def __init__(self, bot):
         self.bot = bot

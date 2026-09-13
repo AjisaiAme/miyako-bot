@@ -8,7 +8,7 @@ def help_embed(
     prefix: str, now_str: Optional[str] = None, in_rateup: Optional[bool] = None
 ) -> discord.Embed:
     desc = (
-"*Watch your step.* Messages may trigger landmines.\n\n"
+        "*Watch your step.* Messages may trigger landmines.\n\n"
         f"Use `{prefix}lm allow` to enable the game in this channel."
     )
     if now_str is not None and in_rateup is not None:
@@ -16,14 +16,15 @@ def help_embed(
             f"\n\n**Rate-Up:** {'Active' if in_rateup else 'Inactive'} "
             f"at {now_str} (Asia/Singapore)."
         )
+
     embed = create_embed("Landmine", desc, colour_key="landmine")
 
     admin_cmds = (
         f"`{prefix}lm allow` – Enable the module in this channel\n"
-        f"`{prefix}lm restrict` – Disable and and clear all mines from current channel\n"
+        f"`{prefix}lm restrict` – Disable and clear all mines from the current channel\n"
         f"`{prefix}lm config` – Adjust drop/trigger chances & timeout length\n"
         f"`{prefix}lm clear` – Delete all active mines\n"
-        f"`{prefix}lm wl` – List all whitelisted in the server"
+        f"`{prefix}lm wl` – List all whitelisted channels in the server"
     )
     embed.add_field(name="Admin Commands", value=admin_cmds, inline=False)
 
@@ -31,10 +32,10 @@ def help_embed(
         f"`{prefix}lm drop [1-10]` – Manually place mines (10s cooldown)\n"
         f"`{prefix}lm check` – See how many mines are active\n"
         f"`{prefix}lm stats [@user]` – View user stats\n"
-        f"`{prefix}lm serverstats` – View server‑wide stats\n"
-        f"`{prefix}lm top` – View global leaderboard\n"
-        f"`{prefix}lm rateup` – Check for rate‑up times\n"
-f"`{prefix}lm step` – Trigger a mine manually (best avoided)\n"
+        f"`{prefix}lm serverstats` – View server-wide stats\n"
+        f"`{prefix}lm top` – View the global leaderboard\n"
+        f"`{prefix}lm rateup` – Check for rate-up times\n"
+        f"`{prefix}lm step` – Trigger a mine manually (best avoided)"
     )
     embed.add_field(name="Player Commands", value=user_cmds, inline=False)
     return embed
@@ -87,7 +88,6 @@ def landmines_enabled(channel_mention: str) -> discord.Embed:
     return create_embed(
         "Landmines Enabled!",
         f"Landmines are now active in {channel_mention}. Be careful!",
-
         colour_key="success",
     )
 
@@ -128,7 +128,6 @@ def no_danger() -> discord.Embed:
     return create_embed(
         "No Active Mines",
         "The path is clear. Walk freely!",
-
         colour_key="info",
     )
 
@@ -142,13 +141,9 @@ def boom_embed(member: discord.Member, timeout: int, remaining: int) -> discord.
     return create_embed("Landmine Triggered", desc, colour_key="landmine")
 
 
-
 def mine_placed(member: discord.abc.User, count: int) -> discord.Embed:
     return create_embed(
-        "Mine Placed",
-        f"{member.mention} just dropped {count} mine(s).",
-        colour_key="landmine",
-    )
+        "Uh-oh!",
         f"{member.mention} just dropped {count} mine(s).",
         colour_key="landmine",
     )
@@ -160,10 +155,8 @@ def member_not_found() -> discord.Embed:
 
 def too_powerful(member: discord.Member) -> discord.Embed:
     return create_embed(
-        "Mine Triggered",
+        "... Eh?",
         f"{member.mention} stepped on a mine, but they're too powerful to be timed out.",
-        colour_key="warning",
-    )
         colour_key="warning",
     )
 
@@ -179,10 +172,7 @@ def missing_permissions() -> discord.Embed:
 def forbidden_timeout() -> discord.Embed:
     return create_embed(
         "Permission Denied",
-        "Permission Denied",
         "Sorry, I am not allowed to time out this member.",
-        colour_key="error",
-    )
         colour_key="error",
     )
 
@@ -193,6 +183,7 @@ def unexpected_error() -> discord.Embed:
         "An unexpected error occurred while applying the timeout.",
         colour_key="error",
     )
+
 
 def config_view(
     prefix: str,
@@ -240,6 +231,7 @@ def config_view(
             False,
         ),
     ]
+
     embed = create_embed(
         "Landmine Configuration",
         f"Settings for {channel_mention}\n"
@@ -283,17 +275,11 @@ def value_at_least_one(setting: str) -> discord.Embed:
         f"`{setting}` must be at least 1.",
         colour_key="error",
     )
-        f"`{setting}` must be at least 1.",
-        colour_key="error",
-    )
 
 
 def timeout_minimum() -> discord.Embed:
     return create_embed(
         "Invalid timeout",
-        "Timeout duration must be at least 1 second.",
-        colour_key="error",
-    )
         "Timeout duration must be at least 1 second.",
         colour_key="error",
     )
@@ -305,12 +291,10 @@ def timeout_maximum() -> discord.Embed:
         "Timeout duration cannot exceed 180 seconds (3 minutes).",
         colour_key="error",
     )
-        "Timeout duration cannot exceed 180 seconds (3 minutes).",
-        colour_key="error",
-    )
 
 
 # stats
+
 def user_stats(
     member: discord.Member, guild_name: str, sent: int, trig: int, placed: int
 ) -> discord.Embed:
@@ -341,7 +325,9 @@ def server_stats(
     icon_url: Optional[str] = None,
 ) -> discord.Embed:
     embed = create_embed(
-        f"Landmine Stats for `{guild_name}`", "", colour_key="landmine"
+        f"Landmine Stats for `{guild_name}`",
+        "",
+        colour_key="landmine",
     )
     embed.add_field(name="Total Messages Sent", value=f"`{total_sent}`", inline=True)
     embed.add_field(
@@ -349,13 +335,18 @@ def server_stats(
     )
     embed.add_field(name="Total Mines Placed", value=f"`{total_placed}`", inline=True)
     if top_users:
-        embed.add_field(name="Top Trigger Counts", value="\n".join(top_users), inline=False)
+        embed.add_field(
+            name="Top Trigger Counts",
+            value="\n".join(top_users),
+            inline=False,
+        )
     if icon_url:
         embed.set_thumbnail(url=icon_url)
     return embed
 
 
 # rate-up
+
 def rateup(
     now_str: str,
     in_rateup: bool,
@@ -378,7 +369,7 @@ def rateup(
         status = "Scheduled"
         colour = "info"
 
-    embed = create_embed("Landmine Rate‑Up", desc, colour_key=colour)
+    embed = create_embed("Landmine Rate-Up", desc, colour_key=colour)
     embed.add_field(name="Status", value=f"**{status}**", inline=True)
     embed.add_field(
         name="Schedule",
@@ -400,10 +391,10 @@ def rateup(
     )
     embed.add_field(
         name="Admin Controls",
-            value=(
-                f"`{prefix}lm rateup enable` / `disable`\n"
-                f"`{prefix}lm rateup hours {start_hour} {end_hour}`\n"
-                f"`{prefix}lm rateup multiplier {multiplier}`"
+        value=(
+            f"`{prefix}lm rateup enable` / `disable`\n"
+            f"`{prefix}lm rateup hours {start_hour} {end_hour}`\n"
+            f"`{prefix}lm rateup multiplier {multiplier}`"
         ),
         inline=False,
     )
@@ -427,6 +418,7 @@ def rateup_updated(config) -> discord.Embed:
 
 
 # whitelists
+
 def whitelisted_channels(channels: list) -> discord.Embed:
     if not channels:
         return create_embed(
@@ -438,5 +430,4 @@ def whitelisted_channels(channels: list) -> discord.Embed:
     lines = "\n".join(
         f"{ch.mention if hasattr(ch, 'mention') else ch}" for ch in channels
     )
-
     return create_embed("Whitelisted Channels", lines, colour_key="landmine")
