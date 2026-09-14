@@ -1,6 +1,6 @@
 # Miyako Bot
 
-A Discord bot with server utilities, games, landmines, and an FFXIV Frontline tracker.
+my Discord bot with server utilities and a potent landmine gimmick.
 
 ---
 
@@ -9,21 +9,13 @@ A Discord bot with server utilities, games, landmines, and an FFXIV Frontline tr
 * **Python 3.10+**
 * A Discord bot application and token
 
----
-
 ### Setup
 
 ```bash
 git clone https://github.com/AjisaiAme/miyako-bot.git
 cd miyako-bot
-
-# Create and activate a virtual environment
 python -m venv .venv
-# Windows PowerShell
 .venv\Scripts\Activate.ps1
-# macOS/Linux: source .venv/bin/activate
-
-# Install dependencies
 python -m pip install discord.py aiosqlite python-dotenv
 ```
 
@@ -33,17 +25,13 @@ Add `.env` in the project root:
 DISCORD_BOT_TOKEN=your_token_here
 PREFIX=y! # default
 ```
-
-To run Miyako:
+Run Miyako via:
 ```bash
 python main.py
 ```
-```
 
-### Configuration
-
-Create the bot and token in the [Discord Developer Portal](https://discord.com/developers/applications). Enable these **Privileged Gateway Intents**:
-
+Create the bot and token in the [Discord Developer Portal](https://discord.com/developers/applications).
+Enable these **Privileged Gateway Intents**:
 * Presence Intent
 * Server Members Intent
 * Message Content Intent
@@ -52,13 +40,13 @@ Invite the bot to your server with permissions to read and send messages, add re
 
 ### Run
 
-```bash
-python main.py
+```
+py main.py
 ```
 
 ### Persistence
 
-Landmine statistics, channel configurations, and active mine counts are stored in `miyako_data.db`. The database file is created automatically.
+Landmine statistics, channel configurations, and active mine counts are stored in `miyako_data.db`. The database file is created automatically upon setup.
 
 ### Commands
 
@@ -77,7 +65,7 @@ Miyako operates with the configured prefix (default `y!`).
 
 ### Server Modules
 
-Server administrators can enable or disable modules per server. These commands require the **Manage Server** permission.
+Server administrators can enable or disable cogs per server. These commands require the user to have the **Manage Server** permission as these are commands that impact Miyako's functionalities.
 
 | Command | Description | Usage |
 | :------ | :---------- | :---- |
@@ -87,9 +75,9 @@ Server administrators can enable or disable modules per server. These commands r
 
 Available modules:
 
-- `utility` – Help, server information, profiles, and status commands
-- `fun` – Dice, polls, timers, games, and ratings
-- `landmine` – The landmine game and its statistics
+- `utility` – tooltips, server information, profiles, and other status commands
+- `fun` – dice, polls, timers, games, and others
+- `landmine` – the landmine cog
 - `xiv` – Final Fantasy XIV-related functions
 
 The module control remains available when `utility` is disabled, so an administrator can restore it with `m!cog enable utility`.
@@ -102,7 +90,7 @@ The module control remains available when `utility` is disabled, so an administr
 
 ### Landmines
 
-Based on a funny bit from [Max0r's server](https://x.com/realMax0r/status/1982196340387188780). When enabled, landmines can drop with a 1% chance every time a message is sent, and another 1% chance to detonate it to time them out for 30 seconds (up to 3 minutes).
+Based on a funny bit from [Max0r's server](https://x.com/realMax0r/status/1982196340387188780). When enabled, landmines can drop with a base 1% chance every time a message is sent, and another 1% chance to detonate it to time them out for 30 seconds by default (up to 3 minutes).
 
 To avoid being too annoying, the module must be **enabled per channel** by a server admin.
 
